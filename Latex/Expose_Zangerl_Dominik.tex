@@ -64,37 +64,41 @@
 
 \section{Motivation}
 
-Das Ziel meiner Bachelorarbeit ist es eine Webanwendung zu entwickeln, mit der die ARMv5 Entwicklungsumgebung simuliert wird. ARMv5 \cite{arm:2005} wird im ersten Semester als Beispiel für eine Befehlssatzarchitektur unterrichtet. Studierende sollen selber Programme in Assembler schreiben und diese dann auf einer ARMv5 Architektur ausführen. Diese Entwicklungsumgebung wird zurzeit mit verschiedenen Linux-Programmen simuliert. Die GNU Toolchain für die ARM Cortex-A Familien Architektur \cite{gnutoolchain} wird für das Kompilieren und Linken der Assembler-Dateien verwendet. Dieses Programm läuft dann nicht auf der Architektur des Hostrechners, sondern wird mit Hilfe des QEMU User-Space-Emulators \cite{qemu} ausgeführt. Um also ein einfaches Assembler-Programm kompilieren und ausführen zu können, braucht ein Student eine Linux-Umgebung mit oben erwähnten Tools. Diese Toolchain kann man leicht mit einer virtuellen Maschine oder dem Windows Subsystem for Linux \cite{wsl} unter Windows 10 zum Laufen bringen. Auch die verschiedenen Befehle bis zu einem ausführbaren Programm können mit einem Skript zu einem Befehl vereinfacht werden.
+Das Ziel meiner Bachelorarbeit ist es eine Webanwendung zu entwickeln, mit der die ARMv5 Entwicklungsumgebung simuliert wird. ARMv5 \cite{arm:2005} wird im ersten Semester als Beispiel für eine Befehlssatzarchitektur unterrichtet. Studierende sollen ihre eigenen Programme in Assembler \cite{assembly} schreiben und diese dann auf einer ARMv5 Architektur ausführen. Diese Entwicklungsumgebung wird zurzeit mit verschiedenen Linux-Programmen simuliert. Die GNU Toolchain für die ARM Cortex-A Architektur \cite{gnutoolchain} wird für das Kompilieren und Linken der Assembler-Dateien verwendet. Das kompilierte ARM-Programm läuft dann nicht auf der Architektur des Hostrechners, sondern wird mit Hilfe des QEMU User-Space-Emulators \cite{qemu} ausgeführt. Dieser Prozess kann vereinfacht werden, indem man die Toolchain in einer virtuellen Maschine oder dem Windows Subsystem for Linux \cite{wsl} installiert und sich für die Befehlskette ein Skript schreibt.
 
-Das größere Problem bei dieser Toolchain ist die Fehlersuche und das Debugging des Programms. Den Fehler auf eine bestimmte Instruktion oder ein Registers zurückzuführen nimmt oft die größte Zeit in Anspruch. Der ARM-Emulator kann mit dem GNU Debugger \cite{gdb} zusammen verwendet werden, welcher auch die Inhalte der Register anzeigen kann. Dies bedeutet jedoch häufig einen großen Zeitaufwand um alles aufzusetzen. Auch das Arbeiten mit Debuggern, besonders auf der Kommandozeile, könnte vielen noch nicht geläufig sein. 
+Das größere Problem bei dieser Toolchain ist die Fehlersuche und das Debugging des Programms. Den Fehler auf eine bestimmte Instruktion oder ein Registers zurückzuführen nimmt oft die größte Zeit in Anspruch. Der ARM-Emulator kann zusammen mit dem GNU Debugger \cite{gdb}  verwendet werden, welcher auch die Inhalte der Register anzeigen kann. Dies bedeutet jedoch häufig einen großen Zeitaufwand um alles aufzusetzen. Auch das Arbeiten mit Debuggern, besonders auf der Kommandozeile, könnte vielen noch nicht geläufig sein. 
 
-An dieser Stelle greift dieses Bachelorprojekt ein und versucht die ARMv5 Entwicklungsumgebung inklusive Debugging mit einer Webanwendung zu simulieren. Der Benutzer schreibt den ARM-Code direkt in die Webanwendung, welcher dann auf einer simulierten CPU und simuliertem Hauptspeicher direkt im Browser ausgeführt wird. Es wird also keine Linux-Umgebung mit GNU Toolchain benötigt. Die Inhalte der Register, des Stacks und Teile des Hauptspeichers werden dauerhaft angezeigt und helfen dem Benutzer bei der Fehlerbehebung, da er sofort sieht, an welcher Stelle ein ungewünschter Wert in ein Register geschrieben wird. Zusammen mit den Funktionen eines Debuggers, wie zeilenweise Abarbeitung des Codes oder setzen von Breakpoints, wird den Studenten die zeitaufwändigste Arbeit abgenommen und sie können sich auf den wichtigen Teil, das Schreiben und Analysieren des ARM-Codes, konzentrieren.
+An dieser Stelle greift dieses Bachelorprojekt ein und versucht die ARMv5 Entwicklungsumgebung inklusive Debugging mit einer Webanwendung zu simulieren. Der Benutzer schreibt den ARM-Code direkt in die Webanwendung, welcher dann auf einer simulierten CPU und simuliertem Hauptspeicher direkt im Browser ausgeführt wird. Die Inhalte der Register, des Stacks und Teile des Hauptspeichers werden dauerhaft angezeigt und helfen dem Benutzer bei der Fehlerbehebung, da er sofort sieht, an welcher Stelle ein ungewünschter Wert in ein Register geschrieben wird. Zusammen mit den Funktionen eines Debuggers, wie zeilenweise Abarbeitung des Codes oder setzen von Breakpoints, wird den Studierenden die zeitaufwändigste Arbeit abgenommen und sie können sich auf den wichtigen Teil konzentrieren, nämlich das Schreiben und Verstehen von ARM-Assembler Code.
 
 \section{Technologien und Implementation}
 
 \subsection{Technologien}
 
-Das Backend der Anwendung wird in TypeScript geschrieben. TypeScript \cite{typescript} ist eine Programmiersprache, die auf JavaScript aufbaut und statische Typisierung und Klassen hinzufügt. Sie wurde von Microsoft entwickelt um die Schwächen von JavaScript zu umgehen. Bei JavaScript gibt es zwar auch Typen, wie Nummer oder String, aber es wird nicht überprüft, ob diese korrekt zugewiesen werden. Diese fehlende Typisierung kann bei größeren Programmen leichter zu Fehlern führen. Der fertige TypeScript Code wird dann in ein ausführbares JavaScript Programm kompiliert.
-
-Für die Erstellung der Webanwendung wird React verwendet. React \cite{react} ist ein Webframework von Facebook zur Erstellung von Benutzeroberflächen für JavaScript und TypeScript Applikationen. Damit lassen sich die einzelnen Komponenten der ARMv5 Entwicklungsumgebung, wie das Textfeld für die Benutzereingabe oder der Zustand der Register, leicht visualisieren und ermöglicht plattformunabhängige Nutzung, da React in jedem modernen Browser funktioniert.
+Das Backend der Anwendung wird in TypeScript geschrieben. TypeScript \cite{understandingtypescript}\cite{typescript} ist eine Programmiersprache, die auf JavaScript aufbaut und statische Typisierung und Klassen hinzufügt. Sie wurde von Microsoft entwickelt um die Schwächen von JavaScript zu umgehen. Die fehlende Typisierung in JavaScript kann bei größeren Programmen leichter zu Fehlern führen. Für die Erstellung der Webanwendung wird React verwendet. React \cite{react} ist ein Webframework von Facebook zur Erstellung von Benutzeroberflächen für JavaScript/TypeScript und funktioniert in jedem modernen Browser. Dies garantiert eine einheitliche und plattformunabhängige Darstellung der TypeScript-Applikation.
 
 \subsection{Parser}
 
-\begin{lstlisting}[caption={Beispielgrammatik mit tsPEG für 2 verschiedene Instruktionen und Daten eines Speicherbereichs mit Label.},label={lst:grammar}]
-start := instruction | data
-instruction := instruction1 | instruction2
+Zuerst benötigen wir einen Parser, der den ARM-Code des Benutzers aus der Webanwendung einliest und interpretiert. Dafür verwende ich den Parser-Generator tsPEG \cite{tspeg} für TypeScript. Mit tsPEG kann eine Parsing Expression Grammatik (PEG) \cite{peg} definiert werden, die alle nötigen Instruktionen und Deklarationen von ARMv5 enthält, und daraus einen Parser generieren.
 
-instruction1 := inst='MOV' '[ \t]+' reg='r[0-9]+' ', #' immediate='[0-9]+'
-instruction2 := inst='CMP' '[ \t]+' reg1='r[0-9]+' ', ' reg2='r[0-9]+'
+\begin{lstlisting}[caption={Beispielgrammatik mit tsPEG für die \texttt{MOV-}Instruktion mit 2 Registern und Barrel-Shifter oder Daten eines Speicherbereichs mit Label.},label={lst:grammar}]
+start := inst | data
+
+inst := inst='MOV' '[ \t]+' r1='r[0-9]+' ', ' r2='r[0-9]+' shift=barrel?
+barrel := ', ' shift_type=shift_type ' #' shift_amount='[0-9]+'
+shift_type := 'LSL' | 'LSR' | 'ASR' | 'ROR' | 'RRX' | 'ASL'
 
 data := '.data\n' label='.[a-zA-Z]+' '[ \t]+' '\"' data='[a-zA-Z0-9\n]*' '\"'
 \end{lstlisting}
 
-Zuerst benötigen wir einen Parser, der den ARM-Code des Benutzers aus der Webanwendung einliest und interpretiert. Dafür verwende ich den Parser-Generator für TypeScript tsPEG \cite{tspeg}. Mit tsPEG kann man eine Grammatik definieren, die alle nötigen Instruktionen und Deklarationen von ARMv5 enthält, und daraus einen Parser generieren. Listing \ref{lst:grammar} zeigt ein Beispiel einer solchen Grammatik. Diese Beispielgrammatik kann eine \texttt{MOV-}Instruktion mit einem Register und einem Immediate-Wert, eine \texttt{CMP-}Instruktion von 2 Registern oder das Label und die Daten eines Datenbereichs erkennen. Mit den Zuweisungen innerhalb einer Zeile, wie \texttt{reg1=} oder \texttt{data=}, werden die geparsten Werte als Variablen in einem abstrakten Syntaxbaum (AST) gespeichert. Dabei muss auch beachtet werden, dass Operationen eine unterschiedliche Anzahl von Parametern aufweisen können (z.B: zusätzliche Verschiebung mittels Barrel-Shifter des zweiten Operanden). Der Parser sollte dabei die richtige Syntax kontrollieren, die Datenbereiche und Labels einlesen und anschließend die Instruktionen in der richtigen Reihenfolge parsen. Diese können dann an die simulierte CPU weitergegeben werden, welche die Instruktionen ausführt.
+Listing \ref{lst:grammar} zeigt ein Beispiel einer solchen Grammatik. Diese Beispielgrammatik kann eine \texttt{MOV-}Instruktion mit zwei Register und Barrel-Shifter oder das Label und die Daten eines Datenbereichs erkennen. Mit den Zuweisungen innerhalb einer Zeile, wie \texttt{r1=} oder \texttt{data=}, werden die geparsten Werte als Variablen in einem abstrakten Syntaxbaum (AST) gespeichert. Dabei muss auch beachtet werden, dass Operationen eine unterschiedliche Anzahl von Parametern aufweisen können. In diesem Beispiel kennzeichnet das \texttt{?} am Ende der dritten Zeile den optionalen Barrel-Shifter. Der Parser sollte dabei die richtige Syntax kontrollieren, die Datenbereiche und Labels einlesen und anschließend die Instruktionen in der richtigen Reihenfolge parsen. Diese können dann an die simulierte CPU weitergegeben werden, welche die Instruktionen ausführt.
 
 \subsection{Simulator und Debugger}\label{sec:debug}
 
-Die CPU und der Hauptspeicher werden ebenfalls mit TypeScript simuliert. Die CPU liest die einzelnen Instruktionen des Parsers und führt diese dann aus, indem es die Register verändert, vom Hauptspeicher liest bzw. in den Hauptspeicher schreibt oder etwas auf dem Terminal ausgibt. Die CPU simuliert auch die Standardfunktionen eines Debuggers. Dazu zählen das Setzen von Breakpoints, das zeilenweise Ausführen der Instruktionen, Ausführung bis zum nächsten Breakpoint oder das Ausführen einer einzelnen Subroutine. Die wichtigsten Funktionen sind in Abbildung \ref{layout} angeführt. Mit \textit{Step Into} wird die nächste Zeile ausgeführt und einer möglichen Subroutine gefolgt. Mit \textit{Step Over} wird, statt der Subroutine zu folgen, diese ausgeführt und das Programm danach wieder gestoppt. \textit{Continue} führt das Programm bis zum nächsten Breakpoint aus. Weitere Funktionen sind \textit{Stop}, um das Programm im Falle einer Schleife zu beenden oder \textit{Step Return}, um das Programm bis zur Ende der Subroutine auszuführen. Zuletzt beinhaltet der Simulator noch den Zustand der Register, des Stacks und Teile des Hauptspeichers. Diese werden nach jedem Instruktionsschritt aktualisiert und dem Benutzer angezeigt.
+Die CPU und der Hauptspeicher werden ebenfalls mit TypeScript simuliert. Die CPU liest die einzelnen Instruktionen des Parsers und führt diese dann aus, indem es die Register verändert, vom Hauptspeicher liest bzw. in den Hauptspeicher schreibt oder etwas auf dem Terminal ausgibt. Die CPU simuliert auch die Standardfunktionen eines Debuggers. Dazu zählen das Setzen von Breakpoints, das zeilenweise Ausführen der Instruktionen, Ausführung bis zum nächsten Breakpoint oder das Ausführen einer einzelnen Subroutine. Die wichtigsten Funktionen sind in Abbildung \ref{layout} angeführt. Mit \textit{Step Into} wird die nächste Zeile ausgeführt und einer möglichen Subroutine gefolgt. Mit \textit{Step Over} wird, statt der Subroutine zu folgen, diese ausgeführt und das Programm danach wieder gestoppt. \textit{Continue} führt das Programm bis zum nächsten Breakpoint aus. Weitere Funktionen sind \textit{Pause}/\textit{Stop}, um das Programm zu pausieren bzw. im Falle einer Schleife zu beenden oder \textit{Step Return}, um das Programm bis zum Ende der Subroutine auszuführen. Zuletzt beinhaltet der Simulator noch den Zustand der Register, des Stacks und des Hauptspeichers. Diese werden nach jedem Instruktionsschritt aktualisiert und dem Benutzer angezeigt.
+
+\subsection{Frontend}
+
+In Abbildung \ref{layout} ist das geplante Layout der Webanwendung dargestellt, die sich an ähnlichen Online Compilern und Debuggern orientiert (Online GDB \cite{onlinegdb}, CPUlator \cite{cpulator}, emuARM \cite{emuarm}).
 
 \begin{figure}[!htb]	
 	\includegraphics[width=0.8\paperwidth]{data/layout}
@@ -102,9 +106,7 @@ Die CPU und der Hauptspeicher werden ebenfalls mit TypeScript simuliert. Die CPU
 	\label{layout}
 \end{figure}
 
-\subsection{Frontend}
-
-In Abbildung \ref{layout} ist das geplante Layout der Webanwendung dargestellt, die sich an ähnlichen Online Compilern und Debuggern orientiert (Online GDB \cite{onlinegdb}, CPUlator \cite{cpulator}). Auf der rechten Seite befindet sich ein großes Textfeld für die Eingabe des ARM-Codes vom Benutzer. Bei den einzelnen Zeilennummern können Breakpoints für den Debugger gesetzt werden. Darunter befindet sich das Terminal für die Ausgabe eines Ergebnisses oder etwaigen Fehlern/Warnungen. Auf der linken Seite wird der jetzige Zustand des Programms ausgegeben, wie der Inhalt der einzelnen Register oder der Stack Trace. Der Inhalt der Register sollte an dieser Stelle auch vom Benutzer verändert werden können. Darunter befinden sich die Funktionen des Debuggers und etwaige andere Optionen, wie das Speichern und Laden von Dateien.
+Auf der rechten Seite befindet sich ein großes Textfeld für die Eingabe des ARM-Codes der BenutzerInnen. Bei den einzelnen Zeilennummern können Breakpoints für den Debugger gesetzt werden. Darunter befindet sich das Terminal für die Ausgabe eines Ergebnisses oder etwaigen Fehlern/Warnungen. Auf der linken Seite wird der jetzige Zustand des Programms ausgegeben, wie der Inhalt der einzelnen Register oder der Stack Trace. Der Inhalt der Register sollte an dieser Stelle auch durch die BenutzerInnen verändert werden können. Darunter befinden sich die Funktionen des Debuggers und etwaige andere Optionen, wie das Speichern und Laden von Dateien.
 
 
 \section{Vorgehensweise und Zeitplan}
@@ -117,13 +119,25 @@ In Abbildung \ref{layout} ist das geplante Layout der Webanwendung dargestellt, 
 
 Der Zeitplan für mein Bachelorprojekt ist in Abbildung \ref{timeline} abgebildet. Da ich keine anderen Lehrveranstaltungen mehr habe und meine volle Zeit auf die Bachelorarbeit konzentrieren kann, habe ich meinen Zeitplan auf eine Präsentation in diesem Semester ausgelegt. Falls in den ersten Monaten klar wird, dass dieser Zeitplan zu eng gefasst ist und ich für eine Präsentation in diesem Semester nicht fertig werde, nehme ich die Sommermonate zur Implementation und Fertigstellung hinzu und plane die Präsentation für einen der ersten Termine des Bachelorseminars des nächsten Semesters.
 
-Für die finale Implementierung sollten folgende Voraussetzungen erfüllt sein:
+Für die finale Implementierung müssen folgende Voraussetzungen erfüllt sein:
 
 \begin{itemize}
 \item Die in der Vorlesung vorgestellten bzw. für das Proseminar benötigten ARMv5-Instruktionen sind implementiert.
-\item Die Webanwendung weißt eine Benutzeroberfläche (ähnlich Abbildung \ref{layout}) mit Anzeige von Registern, Stack und Teilen des Hauptspeichers auf.
+\item Die Webanwendung weist eine Benutzeroberfläche (ähnlich Abbildung \ref{layout}) mit Anzeige von Registern, Stack und Teilen des Hauptspeichers auf.
 \item Der Debugger implementiert die in Abschnitt \ref{sec:debug} beschriebenen Funktionen.
 \item Die korrekte Funktionsweise wird mit den Musterlösungen der Beispiele aus dem Proseminar getestet.
+\end{itemize}
+Optionale Ziele meiner Bachelorarbeit sind:
+
+\begin{itemize}
+\item Die Implementierung einer automatischen Code-Vervollständigung mit Hinweisen zur Verwendung der eingetippten Instruktionen (Anzahl Parameter, optionale Parameter).
+\item Das Erstellen von Vorlagen für die PS-Aufgaben (bereitgestellte Skeletons, Code aus der Vorlesung) und Überprüfung der Korrektheit des Ergebnisses im Hintergrund (z.B. korrekte Umwandlung in Dezimalzahl, richtige Zahlen im Pascalschen Dreieck).
+\end{itemize}
+Der Umfang meiner Bachelorarbeit beinhaltet nicht:
+
+\begin{itemize}
+\item Die Implementierung aller Funktionen einer ARMv5-Entwicklungsumgebung (z.B. Thumb-Instruktionen, Exceptions).
+\item Die Simulation findet auf Ebene des Assembler-Codes statt. Es gibt keine Unterstützung für die Anzeige des Maschinencodes nach der Kompilation, wie bei CPUlator \cite{cpulator}.
 \end{itemize}
 
 
