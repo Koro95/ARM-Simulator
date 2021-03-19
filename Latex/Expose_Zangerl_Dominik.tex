@@ -68,7 +68,7 @@ Das Ziel meiner Bachelorarbeit ist es eine Webanwendung zu entwickeln, mit der d
 
 Das größere Problem bei dieser Toolchain ist die Fehlersuche und das Debugging des Programms. Den Fehler auf eine bestimmte Instruktion oder ein Registers zurückzuführen nimmt oft die größte Zeit in Anspruch. Der ARM-Emulator kann zusammen mit dem GNU Debugger \cite{gdb}  verwendet werden, welcher auch die Inhalte der Register anzeigen kann. Dies bedeutet jedoch häufig einen großen Zeitaufwand um alles aufzusetzen. Auch das Arbeiten mit Debuggern, besonders auf der Kommandozeile, könnte vielen noch nicht geläufig sein. 
 
-An dieser Stelle greift dieses Bachelorprojekt ein und versucht die ARMv5 Entwicklungsumgebung inklusive Debugging mit einer Webanwendung zu simulieren. Der Benutzer schreibt den ARM-Code direkt in die Webanwendung, welcher dann auf einer simulierten CPU und simuliertem Hauptspeicher direkt im Browser ausgeführt wird. Die Inhalte der Register, des Stacks und Teile des Hauptspeichers werden dauerhaft angezeigt und helfen dem Benutzer bei der Fehlerbehebung, da er sofort sieht, an welcher Stelle ein ungewünschter Wert in ein Register geschrieben wird. Zusammen mit den Funktionen eines Debuggers, wie zeilenweise Abarbeitung des Codes oder setzen von Breakpoints, wird den Studierenden die zeitaufwändigste Arbeit abgenommen und sie können sich auf den wichtigen Teil konzentrieren, nämlich das Schreiben und Verstehen von ARM-Assembler Code.
+An dieser Stelle greift dieses Bachelorprojekt ein und versucht die ARMv5 Entwicklungsumgebung inklusive Debugging mit einer Webanwendung zu simulieren. Benutzer:innen schreiben den ARM-Code direkt in die Webanwendung, welcher dann auf einer simulierten CPU und simuliertem Hauptspeicher direkt im Browser ausgeführt wird. Die Inhalte der Register, des Stacks und Teile des Hauptspeichers werden dauerhaft angezeigt und helfen Benutzer:innen bei der Fehlerbehebung, da sie sofort sehen, an welcher Stelle ein ungewünschter Wert in ein Register geschrieben wird. Zusammen mit den Funktionen eines Debuggers, wie zeilenweise Abarbeitung des Codes oder setzen von Breakpoints, wird den Studierenden die zeitaufwändigste Arbeit abgenommen und sie können sich auf den wichtigen Teil konzentrieren, nämlich das Schreiben und Verstehen von ARM-Assembler Code.
 
 \section{Technologien und Implementation}
 
@@ -78,7 +78,7 @@ Das Backend der Anwendung wird in TypeScript geschrieben. TypeScript \cite{under
 
 \subsection{Parser}
 
-Zuerst benötigen wir einen Parser, der den ARM-Code des Benutzers aus der Webanwendung einliest und interpretiert. Dafür verwende ich den Parser-Generator tsPEG \cite{tspeg} für TypeScript. Mit tsPEG kann eine Parsing Expression Grammatik (PEG) \cite{peg} definiert werden, die alle nötigen Instruktionen und Deklarationen von ARMv5 enthält, und daraus einen Parser generieren.
+Zuerst benötigen wir einen Parser, der den ARM-Code der Benutzer:innen aus der Webanwendung einliest und interpretiert. Dafür verwende ich den Parser-Generator tsPEG \cite{tspeg} für TypeScript. Mit tsPEG kann eine Parsing Expression Grammatik (PEG) \cite{peg} definiert werden, die alle nötigen Instruktionen und Deklarationen von ARMv5 enthält, und daraus einen Parser generieren.
 
 \begin{lstlisting}[caption={Beispielgrammatik mit tsPEG für die \texttt{MOV-}Instruktion mit 2 Registern und Barrel-Shifter oder Daten eines Speicherbereichs mit Label.},label={lst:grammar}]
 start := inst | data
@@ -90,11 +90,11 @@ shift_type := 'LSL' | 'LSR' | 'ASR' | 'ROR' | 'RRX' | 'ASL'
 data := '.data\n' label='.[a-zA-Z]+' '[ \t]+' '\"' data='[a-zA-Z0-9\n]*' '\"'
 \end{lstlisting}
 
-Listing \ref{lst:grammar} zeigt ein Beispiel einer solchen Grammatik. Diese Beispielgrammatik kann eine \texttt{MOV-}Instruktion mit zwei Register und Barrel-Shifter oder das Label und die Daten eines Datenbereichs erkennen. Mit den Zuweisungen innerhalb einer Zeile, wie \texttt{r1=} oder \texttt{data=}, werden die geparsten Werte als Variablen in einem abstrakten Syntaxbaum (AST) gespeichert. Dabei muss auch beachtet werden, dass Operationen eine unterschiedliche Anzahl von Parametern aufweisen können. In diesem Beispiel kennzeichnet das \texttt{?} am Ende der dritten Zeile den optionalen Barrel-Shifter. Der Parser sollte dabei die richtige Syntax kontrollieren, die Datenbereiche und Labels einlesen und anschließend die Instruktionen in der richtigen Reihenfolge parsen. Diese können dann an die simulierte CPU weitergegeben werden, welche die Instruktionen ausführt.
+Listing \ref{lst:grammar} zeigt ein Beispiel einer solchen Grammatik. Diese Beispielgrammatik kann eine \texttt{MOV-}Instruktion mit zwei Register und Barrel-Shifter oder das Label und die Daten eines Datenbereichs erkennen. Mit den Zuweisungen innerhalb einer Zeile, wie \glqq\texttt{r1=}\grqq{} oder \glqq\texttt{data=}\grqq, werden die geparsten Werte als Variablen in einem abstrakten Syntaxbaum (AST) gespeichert. Dabei muss auch beachtet werden, dass Operationen eine unterschiedliche Anzahl von Parametern aufweisen können. In diesem Beispiel kennzeichnet das \glqq\texttt{?}\grqq{} am Ende der dritten Zeile den optionalen Barrel-Shifter. Der Parser sollte dabei die richtige Syntax kontrollieren, die Datenbereiche und Labels einlesen und anschließend die Instruktionen in der richtigen Reihenfolge parsen. Diese können dann an die simulierte CPU weitergegeben werden, welche die Instruktionen ausführt.
 
 \subsection{Simulator und Debugger}\label{sec:debug}
 
-Die CPU und der Hauptspeicher werden ebenfalls mit TypeScript simuliert. Die CPU liest die einzelnen Instruktionen des Parsers und führt diese dann aus, indem es die Register verändert, vom Hauptspeicher liest bzw. in den Hauptspeicher schreibt oder etwas auf dem Terminal ausgibt. Die CPU simuliert auch die Standardfunktionen eines Debuggers. Dazu zählen das Setzen von Breakpoints, das zeilenweise Ausführen der Instruktionen, Ausführung bis zum nächsten Breakpoint oder das Ausführen einer einzelnen Subroutine. Die wichtigsten Funktionen sind in Abbildung \ref{layout} angeführt. Mit \textit{Step Into} wird die nächste Zeile ausgeführt und einer möglichen Subroutine gefolgt. Mit \textit{Step Over} wird, statt der Subroutine zu folgen, diese ausgeführt und das Programm danach wieder gestoppt. \textit{Continue} führt das Programm bis zum nächsten Breakpoint aus. Weitere Funktionen sind \textit{Pause}/\textit{Stop}, um das Programm zu pausieren bzw. im Falle einer Schleife zu beenden oder \textit{Step Return}, um das Programm bis zum Ende der Subroutine auszuführen. Zuletzt beinhaltet der Simulator noch den Zustand der Register, des Stacks und des Hauptspeichers. Diese werden nach jedem Instruktionsschritt aktualisiert und dem Benutzer angezeigt.
+Die CPU und der Hauptspeicher werden ebenfalls mit TypeScript simuliert. Die CPU liest die einzelnen Instruktionen des Parsers und führt diese dann aus, indem es die Register verändert, vom Hauptspeicher liest bzw. in den Hauptspeicher schreibt oder etwas auf dem Terminal ausgibt. Die CPU simuliert auch die Standardfunktionen eines Debuggers. Dazu zählen das Setzen von Breakpoints, das zeilenweise Ausführen der Instruktionen, Ausführung bis zum nächsten Breakpoint oder das Ausführen einer einzelnen Subroutine. Die wichtigsten Funktionen sind in Abbildung \ref{layout} angeführt. Mit \textit{Step Into} wird die nächste Zeile ausgeführt und einer möglichen Subroutine gefolgt. Mit \textit{Step Over} wird, statt der Subroutine zu folgen, diese ausgeführt und das Programm danach wieder gestoppt. \textit{Continue} führt das Programm bis zum nächsten Breakpoint aus. Weitere Funktionen sind \textit{Pause}/\textit{Stop}, um das Programm zu pausieren bzw. im Falle einer Schleife zu beenden oder \textit{Step Return}, um das Programm bis zum Ende der Subroutine auszuführen. Zuletzt beinhaltet der Simulator noch den Zustand der Register, des Stacks und des Hauptspeichers. Diese werden nach jedem Instruktionsschritt aktualisiert und Benutzer:innen angezeigt.
 
 \subsection{Frontend}
 
@@ -106,7 +106,7 @@ In Abbildung \ref{layout} ist das geplante Layout der Webanwendung dargestellt, 
 	\label{layout}
 \end{figure}
 
-Auf der rechten Seite befindet sich ein großes Textfeld für die Eingabe des ARM-Codes der BenutzerInnen. Bei den einzelnen Zeilennummern können Breakpoints für den Debugger gesetzt werden. Darunter befindet sich das Terminal für die Ausgabe eines Ergebnisses oder etwaigen Fehlern/Warnungen. Auf der linken Seite wird der jetzige Zustand des Programms ausgegeben, wie der Inhalt der einzelnen Register oder der Stack Trace. Der Inhalt der Register sollte an dieser Stelle auch durch die BenutzerInnen verändert werden können. Darunter befinden sich die Funktionen des Debuggers und etwaige andere Optionen, wie das Speichern und Laden von Dateien.
+Auf der rechten Seite befindet sich ein großes Textfeld für die Eingabe des ARM-Codes der Benutzer:innen. Bei den einzelnen Zeilennummern können Breakpoints für den Debugger gesetzt werden. Darunter befindet sich das Terminal für die Ausgabe eines Ergebnisses oder etwaigen Fehlern/Warnungen. Auf der linken Seite wird der jetzige Zustand des Programms ausgegeben, wie der Inhalt der einzelnen Register oder der Stack Trace. Der Inhalt der Register sollte an dieser Stelle auch durch die Benutzer:innen verändert werden können. Darunter befinden sich die Funktionen des Debuggers und etwaige andere Optionen, wie das Speichern und Laden von Dateien.
 
 
 \section{Vorgehensweise und Zeitplan}
@@ -130,13 +130,13 @@ Für die finale Implementierung müssen folgende Voraussetzungen erfüllt sein:
 Optionale Ziele meiner Bachelorarbeit sind:
 
 \begin{itemize}
-\item Die Implementierung einer automatischen Code-Vervollständigung mit Hinweisen zur Verwendung der eingetippten Instruktionen (Anzahl Parameter, optionale Parameter).
 \item Das Erstellen von Vorlagen für die PS-Aufgaben (bereitgestellte Skeletons, Code aus der Vorlesung) und Überprüfung der Korrektheit des Ergebnisses im Hintergrund (z.B. korrekte Umwandlung in Dezimalzahl, richtige Zahlen im Pascalschen Dreieck).
+\item Die Implementierung einer automatischen Code-Vervollständigung mit Hinweisen zur Verwendung der eingetippten Instruktionen (Anzahl Parameter, optionale Parameter).
 \end{itemize}
 Der Umfang meiner Bachelorarbeit beinhaltet nicht:
 
 \begin{itemize}
-\item Die Implementierung aller Funktionen einer ARMv5-Entwicklungsumgebung (z.B. Thumb-Instruktionen, Exceptions).
+\item Die Implementierung aller Funktionen einer ARMv5-Entwicklungsumgebung (z.B. Thumb-Instruktionen, alle Exceptions).
 \item Die Simulation findet auf Ebene des Assembler-Codes statt. Es gibt keine Unterstützung für die Anzeige des Maschinencodes nach der Kompilation, wie bei CPUlator \cite{cpulator}.
 \end{itemize}
 
