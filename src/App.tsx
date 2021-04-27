@@ -1,12 +1,11 @@
-//import React from 'react';
 import './App.css';
-import Box from '@material-ui/core/Box';
 import { Cpu } from './Cpu'
-import Table from '@material-ui/core/Table';
-import TableBody from '@material-ui/core/TableBody';
-import TableCell from '@material-ui/core/TableCell';
-import TableContainer from '@material-ui/core/TableContainer';
-import TableRow from '@material-ui/core/TableRow';
+
+import React from 'react';
+import Box from '@material-ui/core/Box';
+import TextField from '@material-ui/core/TextField';
+
+
 import InputBase from '@material-ui/core/InputBase';
 
 let cpu = new Cpu();
@@ -20,20 +19,8 @@ function App() {
       <body className="App-body">
         <Box width="19.75%" mr="0.5%" height="100%">
           <Box height="50%" mb="0.5%" className="App-cpustate">
-            <TableContainer style={{ height: "100%" }}>
-              <Table size="small" aria-label="simple table">
-                <TableBody>
-                  {cpu.registers.map((row) => (
-                    <TableRow>
-                      <TableCell component="th" scope="row"> {row.name} </TableCell>
-                      <TableCell component="th" scope="row">
-                      <InputBase defaultValue={row.toHex()} />
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </TableContainer>
+            <div> <div className="Reg-names">{cpu.registers[0].name}</div> <InputBase defaultValue={cpu.registers[0].value} onChange={e => regValueChange(e)} /> </div>
+
           </Box>
           <Box height="29.75%" mb="0.5%" className="App-debugger">
             Debugger
@@ -43,9 +30,16 @@ function App() {
           </Box>
         </Box>
         <Box width="79.75%" height="100%">
-          <Box height="79.5%" mb="0.5%" className="App-textbox">
-            Input Textbox
-          </Box>
+    
+            <TextField
+              className="App-userinput"
+              multiline={true}
+              defaultValue="Default Value"
+              fullWidth={true}
+              rows={20}
+            />
+
+         
           <Box height="19.6%" className="App-terminal">
             Terminal
           </Box>
@@ -53,6 +47,13 @@ function App() {
       </body>
     </div>
   );
+
+  function regValueChange(e: React.ChangeEvent<HTMLTextAreaElement | HTMLInputElement>) {
+    console.log(e.currentTarget.value);
+    console.log(cpu.registers[0].value);
+  }
 }
+
+
 
 export default App;
