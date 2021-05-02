@@ -39,6 +39,7 @@
   background-color: white;
   color: black;
   text-align: left;
+  overflow: scroll;
 }
 
 .Reg-names {
