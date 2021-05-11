@@ -21,25 +21,23 @@
   flex: 95;
 }
 
-.App-textbox {
-  background-color: white;
-  color: black;
-  text-align: left;
-}
-
 .App-userinput {
   background-color: white;
   color: black;
   text-align: left;
-  height: 79.5%;
-  margin-bottom: 0.5%;
+  height: 100%;
+  width: 100%;
+  resize: none;
+  border: none;
+  margin: 0;
+  padding: 0;
 }
 
 .App-cpustate {
   background-color: white;
   color: black;
   text-align: left;
-  overflow: scroll;
+  overflow-y: scroll;
 }
 
 .Reg-names {
