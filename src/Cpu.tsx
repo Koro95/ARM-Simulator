@@ -7,6 +7,7 @@ export { Cpu }
 
 type CpuState = {
     registers: Register[];
+    statusRegister: statusRegister;
 }
 
 class Cpu extends React.Component<any, CpuState> {
@@ -17,13 +18,87 @@ class Cpu extends React.Component<any, CpuState> {
         for (let index = 0; index < 16; index++) {
             initializedRegisters.push(new Register(defaultValue));
         }
-        this.state = { registers: initializedRegisters };
+        this.state = { registers: initializedRegisters, statusRegister: new statusRegister() };
     }
 
-    ADD() {
+    ADD(y: number, a: number, b: number) {
         let newRegisters = [...this.state.registers];
-        newRegisters[0].setValue(newRegisters[0].getValue() + newRegisters[1].getValue());
-        this.setState( { registers: newRegisters } );
+
+        let temp = newRegisters[a].getValue() + newRegisters[b].getValue();
+        newRegisters[y].setValue(this.setTo32Bit(temp));
+        this.setState({ registers: newRegisters });
+
+        console.log(newRegisters[0].getValue())
+    }
+
+    ADC(y: number, a: number, b: number) {
+        let newRegisters = [...this.state.registers];
+
+        let temp = newRegisters[a].getValue() + newRegisters[b].getValue() + this.state.statusRegister.getC();
+        newRegisters[y].setValue(this.setTo32Bit(temp));
+        this.setState({ registers: newRegisters });
+
+        console.log(newRegisters[0].getValue())
+    }
+
+    SUB(y: number, a: number, b: number) {
+        let newRegisters = [...this.state.registers];
+
+        let temp = newRegisters[a].getValue() - newRegisters[b].getValue();
+        newRegisters[y].setValue(this.setTo32Bit(temp));
+        this.setState({ registers: newRegisters });
+
+        console.log(newRegisters[0].getValue())
+    }
+
+    SBC(y: number, a: number, b: number) {
+        let newRegisters = [...this.state.registers];
+
+        let temp = newRegisters[a].getValue() - newRegisters[b].getValue() + this.state.statusRegister.getC() - 1;
+        newRegisters[y].setValue(this.setTo32Bit(temp));
+        this.setState({ registers: newRegisters });
+
+        console.log(newRegisters[0].getValue())
+    }
+
+    RSB(y: number, a: number, b: number) {
+        let newRegisters = [...this.state.registers];
+
+        let temp = newRegisters[b].getValue() - newRegisters[a].getValue();
+        newRegisters[y].setValue(this.setTo32Bit(temp));
+        this.setState({ registers: newRegisters });
+
+        console.log(newRegisters[0].getValue())
+    }
+
+    RSC(y: number, a: number, b: number) {
+        let newRegisters = [...this.state.registers];
+
+        let temp = newRegisters[b].getValue() - newRegisters[a].getValue() + this.state.statusRegister.getC() - 1;
+        newRegisters[y].setValue(this.setTo32Bit(temp));
+        this.setState({ registers: newRegisters });
+
+        console.log(newRegisters[0].getValue())
+    }
+
+    MUL(y: number, a: number, b: number) {
+        let newRegisters = [...this.state.registers];
+
+        let temp = newRegisters[a].getValue() * newRegisters[b].getValue();
+        newRegisters[y].setValue(this.setTo32Bit(temp));
+        this.setState({ registers: newRegisters });
+
+        console.log(newRegisters[0].getValue())
+    }
+
+    MLA(y: number, a: number, b: number, x: number) {
+        let newRegisters = [...this.state.registers];
+
+        let temp = (newRegisters[a].getValue() * newRegisters[b].getValue()) + newRegisters[x].getValue();
+        newRegisters[y].setValue(this.setTo32Bit(temp));
+        this.setState({ registers: newRegisters });
+
+        console.log(newRegisters[0].getValue())
     }
 
     regValueChange = (index: number, e: React.ChangeEvent<HTMLTextAreaElement | HTMLInputElement>) => {
@@ -31,7 +106,13 @@ class Cpu extends React.Component<any, CpuState> {
         let newRegisters = [...this.state.registers];
 
         newRegisters[index].setValue(parseInt('0x' + newValue));
-        this.setState( { registers: newRegisters } );
+        this.setState({ registers: newRegisters });
+    }
+
+    setTo32Bit(x: number): number {
+        x = x << 32;
+        x = x >>> 32;
+        return x;
     }
 
     render() {
@@ -56,7 +137,14 @@ class Cpu extends React.Component<any, CpuState> {
                     <div> <div className="Reg-names">pc</div> <InputBase margin='none' value={this.state.registers[15].toHex()} onChange={e => this.regValueChange(15, e)} /> </div>
                 </Box>
                 <Box height="29.75%" mb="0.5%" className="App-debugger">
-                    <Button onClick={() => this.ADD()} variant="outlined" color="primary">Add</Button>
+                    <Button onClick={() => this.ADD(0, 1, 2)} variant="outlined" color="primary">ADD</Button>
+                    <Button onClick={() => this.ADC(0, 1, 2)} variant="outlined" color="primary">ADC</Button>
+                    <Button onClick={() => this.SUB(0, 1, 2)} variant="outlined" color="primary">SUB</Button>
+                    <Button onClick={() => this.SBC(0, 1, 2)} variant="outlined" color="primary">SBC</Button>
+                    <Button onClick={() => this.RSB(0, 1, 2)} variant="outlined" color="primary">RSB</Button>
+                    <Button onClick={() => this.RSC(0, 1, 2)} variant="outlined" color="primary">RSC</Button>
+                    <Button onClick={() => this.MUL(0, 1, 2)} variant="outlined" color="primary">MUL</Button>
+                    <Button onClick={() => this.MLA(0, 1, 2, 3)} variant="outlined" color="primary">MLA</Button>
                 </Box>
                 <Box height="19.75%" className="App-options">
                     Options
@@ -80,8 +168,43 @@ class Register {
     setValue(value: number) {
         this.value = value;
     }
-
     getValue(): number {
         return this.value;
+    }
+}
+
+class statusRegister {
+    flags: number[];
+
+    constructor() {
+        this.flags = [0, 0, 0, 0]
+    }
+
+    setN(x: number) {
+        this.flags[0] = x;
+    }
+    getN(): number {
+        return this.flags[0];
+    }
+
+    setZ(x: number) {
+        this.flags[1] = x;
+    }
+    getZ(): number {
+        return this.flags[1];
+    }
+
+    setC(x: number) {
+        this.flags[2] = x;
+    }
+    getC(): number {
+        return this.flags[2];
+    }
+
+    setV(x: number) {
+        this.flags[3] = x;
+    }
+    getV(): number {
+        return this.flags[3];
     }
 }
