@@ -1,4 +1,4 @@
-import React, { KeyboardEvent } from "react";
+import React from "react";
 import InputBase from '@material-ui/core/InputBase';
 import Box from '@material-ui/core/Box';
 import Button from '@material-ui/core/Button';
@@ -10,6 +10,7 @@ export { Cpu }
 type CpuState = {
     registers: Register[];
     statusRegister: statusRegister;
+    codeExecutionEngine: CodeExecutionEngine;
     userInput: String;
 }
 
@@ -21,80 +22,16 @@ class Cpu extends React.Component<any, CpuState> {
         for (let index = 0; index < 16; index++) {
             initializedRegisters.push(new Register(defaultValue));
         }
-        this.state = { registers: initializedRegisters, statusRegister: new statusRegister(), userInput: ".arm\n.text\n.global _start\n_start:\n\t" };
-    }
-
-    ADD(y: number, a: number, b: number) {
-        let newRegisters = [...this.state.registers];
-
-        let temp = newRegisters[a].getValue() + newRegisters[b].getValue();
-        newRegisters[y].setValue(this.setTo32Bit(temp));
-        this.setState({ registers: newRegisters });
-
-        console.log(this.state.userInput.toString())
-    }
-
-    ADC(y: number, a: number, b: number) {
-        let newRegisters = [...this.state.registers];
-
-        let temp = newRegisters[a].getValue() + newRegisters[b].getValue() + this.state.statusRegister.getC();
-        newRegisters[y].setValue(this.setTo32Bit(temp));
-        this.setState({ registers: newRegisters });
-    }
-
-    SUB(y: number, a: number, b: number) {
-        let newRegisters = [...this.state.registers];
-
-        let temp = newRegisters[a].getValue() - newRegisters[b].getValue();
-        newRegisters[y].setValue(this.setTo32Bit(temp));
-        this.setState({ registers: newRegisters });
-    }
-
-    SBC(y: number, a: number, b: number) {
-        let newRegisters = [...this.state.registers];
-
-        let temp = newRegisters[a].getValue() - newRegisters[b].getValue() + this.state.statusRegister.getC() - 1;
-        newRegisters[y].setValue(this.setTo32Bit(temp));
-        this.setState({ registers: newRegisters });
-    }
-
-    RSB(y: number, a: number, b: number) {
-        let newRegisters = [...this.state.registers];
-
-        let temp = newRegisters[b].getValue() - newRegisters[a].getValue();
-        newRegisters[y].setValue(this.setTo32Bit(temp));
-        this.setState({ registers: newRegisters });
-    }
-
-    RSC(y: number, a: number, b: number) {
-        let newRegisters = [...this.state.registers];
-
-        let temp = newRegisters[b].getValue() - newRegisters[a].getValue() + this.state.statusRegister.getC() - 1;
-        newRegisters[y].setValue(this.setTo32Bit(temp));
-        this.setState({ registers: newRegisters });
-    }
-
-    MUL(y: number, a: number, b: number) {
-        let newRegisters = [...this.state.registers];
-
-        let temp = newRegisters[a].getValue() * newRegisters[b].getValue();
-        newRegisters[y].setValue(this.setTo32Bit(temp));
-        this.setState({ registers: newRegisters });
-    }
-
-    MLA(y: number, a: number, b: number, x: number) {
-        let newRegisters = [...this.state.registers];
-
-        let temp = (newRegisters[a].getValue() * newRegisters[b].getValue()) + newRegisters[x].getValue();
-        newRegisters[y].setValue(this.setTo32Bit(temp));
-        this.setState({ registers: newRegisters });
+        this.state = {
+            registers: initializedRegisters, statusRegister: new statusRegister(),
+            userInput: ".arm\n.text\n.global _start\n_start:\n\tADD r1, r2, r3", codeExecutionEngine: new CodeExecutionEngine(this)
+        };
     }
 
     userInputChange = (e: React.ChangeEvent<HTMLTextAreaElement | HTMLInputElement>) => {
         let newValue = e.currentTarget.value;
 
         this.setState({ userInput: newValue });
-        console.log("user")
     }
 
     allowTabKey = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -131,12 +68,6 @@ class Cpu extends React.Component<any, CpuState> {
         this.setState({ registers: newRegisters });
     }
 
-    setTo32Bit(x: number): number {
-        x = x << 32;
-        x = x >>> 32;
-        return x;
-    }
-
     render() {
         return (
             <div className="App-body">
@@ -160,14 +91,14 @@ class Cpu extends React.Component<any, CpuState> {
                         <div> <div className="Reg-names">pc</div> <InputBase margin='none' value={this.state.registers[15].toHex()} onChange={e => this.regValueChange(15, e)} /> </div>
                     </Box>
                     <Box height="29.75%" mb="0.5%" className="App-debugger">
-                        <Button onClick={() => this.ADD(0, 1, 2)} variant="outlined" color="primary">ADD</Button>
-                        <Button onClick={() => this.ADC(0, 1, 2)} variant="outlined" color="primary">ADC</Button>
-                        <Button onClick={() => this.SUB(0, 1, 2)} variant="outlined" color="primary">SUB</Button>
-                        <Button onClick={() => this.SBC(0, 1, 2)} variant="outlined" color="primary">SBC</Button>
-                        <Button onClick={() => this.RSB(0, 1, 2)} variant="outlined" color="primary">RSB</Button>
-                        <Button onClick={() => this.RSC(0, 1, 2)} variant="outlined" color="primary">RSC</Button>
-                        <Button onClick={() => this.MUL(0, 1, 2)} variant="outlined" color="primary">MUL</Button>
-                        <Button onClick={() => this.MLA(0, 1, 2, 3)} variant="outlined" color="primary">MLA</Button>
+                        <Button onClick={() => this.state.codeExecutionEngine.instruction("ADD", 0, 1, 2)} variant="outlined" color="primary">ADD</Button>
+                        <Button onClick={() => this.state.codeExecutionEngine.instruction("ADC", 0, 1, 2)} variant="outlined" color="primary">ADC</Button>
+                        <Button onClick={() => this.state.codeExecutionEngine.instruction("SUB", 0, 1, 2)} variant="outlined" color="primary">SUB</Button>
+                        <Button onClick={() => this.state.codeExecutionEngine.instruction("SBC", 0, 1, 2)} variant="outlined" color="primary">SBC</Button>
+                        <Button onClick={() => this.state.codeExecutionEngine.instruction("RSB", 0, 1, 2)} variant="outlined" color="primary">RSB</Button>
+                        <Button onClick={() => this.state.codeExecutionEngine.instruction("RSC", 0, 1, 2)} variant="outlined" color="primary">RSC</Button>
+                        <Button onClick={() => this.state.codeExecutionEngine.instruction("MUL", 0, 1, 2)} variant="outlined" color="primary">MUL</Button>
+                        <Button onClick={() => this.state.codeExecutionEngine.instruction("MLA", 0, 1, 2, 3)} variant="outlined" color="primary">MLA</Button>
                     </Box>
                     <Box height="19.75%" className="App-options">
                         Options
@@ -183,6 +114,48 @@ class Cpu extends React.Component<any, CpuState> {
                 </Box>
             </div>
         )
+    }
+}
+
+class CodeExecutionEngine {
+    cpu: Cpu;
+
+    constructor(cpu: Cpu) {
+        this.cpu = cpu;
+    }
+
+    instruction(inst: String, y: number, a: number, b: number, x?: number) {
+        let newRegisters = [...this.cpu.state.registers];
+
+        let temp = this.arithmetic(inst, newRegisters[a].getValue(), newRegisters[b].getValue(),
+            (typeof x !== 'undefined') ? newRegisters[x].getValue() : x)
+        if (typeof temp !== 'undefined') {
+            newRegisters[y].setValue(this.setTo32Bit(temp));
+        }
+        this.cpu.setState({ registers: newRegisters });
+
+        console.log(parse(this.cpu.state.userInput.toString()))
+        console.log(parse(this.cpu.state.userInput.toString()).ast.section.text.code)
+    }
+
+    arithmetic(inst: String, a: number, b: number, x?: number): number | undefined {
+        switch (inst) {
+            case "ADD": return (a + b);
+            case "ADC": return (a + b + this.cpu.state.statusRegister.getC());
+            case "SUB": return (a - b);
+            case "SBC": return (a - b + this.cpu.state.statusRegister.getC() - 1);
+            case "RSB": return (b - a);
+            case "RSC": return (b - a + this.cpu.state.statusRegister.getC() - 1);
+            case "MUL": return (a * b);
+            case "MLA": return ((typeof x !== 'undefined') ? (a * b) + x : undefined);
+        }
+        return undefined;
+    }
+
+    setTo32Bit(x: number): number {
+        x = x << 32;
+        x = x >>> 32;
+        return x;
     }
 }
 

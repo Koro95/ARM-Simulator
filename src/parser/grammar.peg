@@ -1,3 +1,10 @@
-start := '.arm' '[ \t\n]*' section
+start := wsn '.arm' wsn section=section
+wsn := '[ \t\n]*'
+ws:= '[ \t]+'
 
-section := '.text' | '.data'
+section := text=text | '.data'
+
+text := wsn '.text' wsn '.global' wsn '_start' wsn '_start:' wsn code=code $
+code := arithmetic
+arithmetic := inst=instruction ws reg1='r[0-9]+' ', ' reg2='r[0-9]+' ', ' reg3='r[0-9]+'
+instruction := 'ADD' | 'ADC' | 'SUB'
