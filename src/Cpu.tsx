@@ -98,28 +98,29 @@ class Cpu extends React.Component<any, CpuState> {
     }
 
     allowTabKey = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-        if (e.key === 'Tab' && !e.shiftKey) {
-            e.preventDefault();
+        if (e.key === 'Tab') {
+            if (!e.shiftKey) {
+                e.preventDefault();
 
-            let x = (e.target as HTMLInputElement);
-            const selectionStart = x.selectionStart;
-            const selectionEnd = x.selectionEnd;
+                let x = (e.target as HTMLInputElement);
+                const selectionStart = x.selectionStart;
+                const selectionEnd = x.selectionEnd;
 
-            if (selectionStart != null && selectionEnd != null) {
-                let newUserInput = this.state.userInput.substring(0, selectionStart)
-                    + "\t" + this.state.userInput.substring(selectionEnd);
+                if (selectionStart != null && selectionEnd != null) {
+                    let newUserInput = this.state.userInput.substring(0, selectionStart)
+                        + "\t" + this.state.userInput.substring(selectionEnd);
 
-                this.setState({ userInput: newUserInput },
-                    () => {
-                        x.selectionStart = x.selectionEnd = selectionStart + 1
-                        e.target = x
-                    });
+                    this.setState({ userInput: newUserInput },
+                        () => {
+                            x.selectionStart = x.selectionEnd = selectionStart + 1
+                            e.target = x
+                        });
+                }
+            }
+            else {
+                e.preventDefault();
             }
         }
-        else if (e.key === 'Tab' && e.shiftKey) {
-            e.preventDefault();
-        }
-        console.log("keydown")
     }
 
     regValueChange = (index: number, e: React.ChangeEvent<HTMLTextAreaElement | HTMLInputElement>) => {

@@ -1,0 +1,3 @@
+start := '.arm' '[ \t\n]*' section
+
+section := '.text' | '.data'
