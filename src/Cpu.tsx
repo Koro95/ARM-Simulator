@@ -9,7 +9,7 @@ export { Cpu }
 
 type CpuState = {
     registers: Register[];
-    statusRegister: statusRegister;
+    statusRegister: StatusRegister;
     codeExecutionEngine: CodeExecutionEngine;
     userInput: String;
     terminal: String;
@@ -26,7 +26,7 @@ class Cpu extends React.Component<any, CpuState> {
             initializedRegisters.push(new Register(defaultValue));
         }
         this.state = {
-            registers: initializedRegisters, statusRegister: new statusRegister(),
+            registers: initializedRegisters, statusRegister: new StatusRegister(),
             codeExecutionEngine: new CodeExecutionEngine(this), userInput: ".arm\n.text\n.global _start\n_start:\n\tADD r1, r2, r3",
             terminal: welcomeMessage
         };
@@ -95,18 +95,24 @@ class Cpu extends React.Component<any, CpuState> {
                         <div> <div className="Reg-names">pc</div> <InputBase margin='none' value={this.state.registers[15].toHex()} onChange={e => this.regValueChange(15, e)} /> </div>
                     </Box>
                     <Box height="29.75%" mb="0.5%" className="App-debugger">
+                        <div>N: {this.state.statusRegister.getN()}, Z: {this.state.statusRegister.getZ()}, C: {this.state.statusRegister.getC()}, V {this.state.statusRegister.getV()}</div>
                         <Button onClick={() => this.state.codeExecutionEngine.executeNextInstruction()} variant="outlined" color="primary">NextInst</Button>
                     </Box>
                     <Box height="19.75%" className="App-options">
                         <div>Options</div>
-                        <Button onClick={() => this.state.codeExecutionEngine.addInstruction("ADD", 0, 1, 2, undefined)} variant="outlined" color="primary">ADD</Button>
-                        <Button onClick={() => this.state.codeExecutionEngine.addInstruction("ADC", 0, 1, 2, undefined)} variant="outlined" color="primary">ADC</Button>
-                        <Button onClick={() => this.state.codeExecutionEngine.addInstruction("SUB", 0, 1, 2, undefined)} variant="outlined" color="primary">SUB</Button>
-                        <Button onClick={() => this.state.codeExecutionEngine.addInstruction("SBC", 0, 1, 2, undefined)} variant="outlined" color="primary">SBC</Button>
-                        <Button onClick={() => this.state.codeExecutionEngine.addInstruction("RSB", 0, 1, 2, undefined)} variant="outlined" color="primary">RSB</Button>
-                        <Button onClick={() => this.state.codeExecutionEngine.addInstruction("RSC", 0, 1, 2, undefined)} variant="outlined" color="primary">RSC</Button>
-                        <Button onClick={() => this.state.codeExecutionEngine.addInstruction("MUL", 0, 1, 2, undefined)} variant="outlined" color="primary">MUL</Button>
-                        <Button onClick={() => this.state.codeExecutionEngine.addInstruction("MLA", 0, 1, 2, 3)} variant="outlined" color="primary">MLA</Button>
+                        <div>
+                            <Button onClick={() => this.state.codeExecutionEngine.addInstruction("CMP", "log", 0, 1, undefined, undefined)} variant="outlined" color="primary">CMP</Button>
+                        </div>
+                        <div>
+                            <Button onClick={() => this.state.codeExecutionEngine.addInstruction("ADD", "art", 0, 1, 2, undefined)} variant="outlined" color="primary">ADD</Button>
+                            <Button onClick={() => this.state.codeExecutionEngine.addInstruction("ADC", "art", 0, 1, 2, undefined)} variant="outlined" color="primary">ADC</Button>
+                            <Button onClick={() => this.state.codeExecutionEngine.addInstruction("SUB", "art", 0, 1, 2, undefined)} variant="outlined" color="primary">SUB</Button>
+                            <Button onClick={() => this.state.codeExecutionEngine.addInstruction("SBC", "art", 0, 1, 2, undefined)} variant="outlined" color="primary">SBC</Button>
+                            <Button onClick={() => this.state.codeExecutionEngine.addInstruction("RSB", "art", 0, 1, 2, undefined)} variant="outlined" color="primary">RSB</Button>
+                            <Button onClick={() => this.state.codeExecutionEngine.addInstruction("RSC", "art", 0, 1, 2, undefined)} variant="outlined" color="primary">RSC</Button>
+                            <Button onClick={() => this.state.codeExecutionEngine.addInstruction("MUL", "art", 0, 1, 2, undefined)} variant="outlined" color="primary">MUL</Button>
+                            <Button onClick={() => this.state.codeExecutionEngine.addInstruction("MLA", "art", 0, 1, 2, 3)} variant="outlined" color="primary">MLA</Button>
+                        </div>
                     </Box>
                 </Box>
                 <Box width="79.75%" height="100%">
@@ -133,9 +139,8 @@ class CodeExecutionEngine {
         this.instructionIndex = 0;
     }
 
-    addInstruction(instruction: string, y: number | undefined, a: number | undefined, b: number | undefined, x: number | undefined) {
-        let tempType = "art";
-        let newInstruction = new Instruction(this, instruction, tempType, y, a, b, x);
+    addInstruction(instruction: string, type: string, y: number | undefined, a: number | undefined, b: number | undefined, x: number | undefined) {
+        let newInstruction = new Instruction(this, instruction, type, y, a, b, x);
         this.instructions.push(newInstruction);
     }
 
@@ -188,6 +193,26 @@ class Instruction {
                     this.codeExecutionEngine.cpu.setState({ registers: newRegisters });
                 }
                 break;
+            case "log":
+                if (typeof this.op1 !== 'undefined' && typeof this.op2 !== 'undefined') {
+                    let newRegisters = [...this.codeExecutionEngine.cpu.state.registers];
+
+                    if (typeof this.op3 !== 'undefined') {
+                        let result = this.logical(newRegisters[this.op2].getValue(), newRegisters[this.op3].getValue());
+                        if (typeof result !== 'undefined') {
+                            newRegisters[this.op1].setValue(this.setTo32Bit(result));
+                            this.codeExecutionEngine.cpu.setState({ registers: newRegisters });
+                        }
+                    }
+                    else {
+                        let result = this.logical(newRegisters[this.op1].getValue(), newRegisters[this.op2].getValue());
+                        if (typeof result !== 'undefined') {
+                            let newStatusRegister = this.codeExecutionEngine.cpu.state.statusRegister;
+                            newStatusRegister.updateFlagsArithmetic(result);
+                            this.codeExecutionEngine.cpu.setState({ statusRegister: newStatusRegister });
+                        }
+                    }
+                }
         }
     }
 
@@ -205,6 +230,22 @@ class Instruction {
 
         return undefined;
     }
+
+    logical(a: number, b: number): number | undefined {
+        switch (this.instruction) {
+            case "AND":
+            case "TST": return (a & b);
+            case "ORR": return (a | b);
+            case "EOR":
+            case "TEQ": return (a ^ b);
+            case "BIC": return (a & (~b));
+            case "CMP": return (a - b);
+            case "CMN": return (a + b);
+        }
+
+        return undefined;
+    }
+
 
     setTo32Bit(x: number): number {
         x = x << 32;
@@ -232,11 +273,18 @@ class Register {
     }
 }
 
-class statusRegister {
+class StatusRegister {
     flags: number[];
 
     constructor() {
         this.flags = [0, 0, 0, 0]
+    }
+
+    updateFlagsArithmetic(x: number) {
+        this.setN(((x & 0x80000000) === 0) ? 0 : 1);
+        this.setZ(((x & 0x00000000) === 0) ? 1 : 0);
+        this.setC(((x >>> 32) === 0) ? 0 : 1);
+        //TODO: OVERFLOW FLAG, DIFFERENT SUBTRACTION WITH OVERFLOW IN INSTRUCTION
     }
 
     setN(x: number) {
