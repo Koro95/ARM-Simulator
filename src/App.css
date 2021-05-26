@@ -53,6 +53,12 @@
   background-color: black;
   color: white;
   text-align: left;
+  height: 100%;
+  width: 100%;
+  resize: none;
+  border: none;
+  margin: 0;
+  padding: 0;
 }
 
 .App-debugger {

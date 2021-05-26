@@ -12,6 +12,7 @@ type CpuState = {
     statusRegister: statusRegister;
     codeExecutionEngine: CodeExecutionEngine;
     userInput: String;
+    terminal: String;
 }
 
 class Cpu extends React.Component<any, CpuState> {
@@ -19,12 +20,15 @@ class Cpu extends React.Component<any, CpuState> {
         super(props)
         let defaultValue = 0x00000001;
         let initializedRegisters = []
+        let welcomeMessage = "<" + new Date().toLocaleTimeString() + "> Welcome";
+
         for (let index = 0; index < 16; index++) {
             initializedRegisters.push(new Register(defaultValue));
         }
         this.state = {
             registers: initializedRegisters, statusRegister: new statusRegister(),
-            userInput: ".arm\n.text\n.global _start\n_start:\n\tADD r1, r2, r3", codeExecutionEngine: new CodeExecutionEngine(this)
+            codeExecutionEngine: new CodeExecutionEngine(this), userInput: ".arm\n.text\n.global _start\n_start:\n\tADD r1, r2, r3",
+            terminal: welcomeMessage
         };
     }
 
@@ -91,25 +95,26 @@ class Cpu extends React.Component<any, CpuState> {
                         <div> <div className="Reg-names">pc</div> <InputBase margin='none' value={this.state.registers[15].toHex()} onChange={e => this.regValueChange(15, e)} /> </div>
                     </Box>
                     <Box height="29.75%" mb="0.5%" className="App-debugger">
-                        <Button onClick={() => this.state.codeExecutionEngine.instruction("ADD", 0, 1, 2)} variant="outlined" color="primary">ADD</Button>
-                        <Button onClick={() => this.state.codeExecutionEngine.instruction("ADC", 0, 1, 2)} variant="outlined" color="primary">ADC</Button>
-                        <Button onClick={() => this.state.codeExecutionEngine.instruction("SUB", 0, 1, 2)} variant="outlined" color="primary">SUB</Button>
-                        <Button onClick={() => this.state.codeExecutionEngine.instruction("SBC", 0, 1, 2)} variant="outlined" color="primary">SBC</Button>
-                        <Button onClick={() => this.state.codeExecutionEngine.instruction("RSB", 0, 1, 2)} variant="outlined" color="primary">RSB</Button>
-                        <Button onClick={() => this.state.codeExecutionEngine.instruction("RSC", 0, 1, 2)} variant="outlined" color="primary">RSC</Button>
-                        <Button onClick={() => this.state.codeExecutionEngine.instruction("MUL", 0, 1, 2)} variant="outlined" color="primary">MUL</Button>
-                        <Button onClick={() => this.state.codeExecutionEngine.instruction("MLA", 0, 1, 2, 3)} variant="outlined" color="primary">MLA</Button>
+                        <Button onClick={() => this.state.codeExecutionEngine.executeNextInstruction()} variant="outlined" color="primary">NextInst</Button>
                     </Box>
                     <Box height="19.75%" className="App-options">
-                        Options
+                        <div>Options</div>
+                        <Button onClick={() => this.state.codeExecutionEngine.addInstruction("ADD", 0, 1, 2, undefined)} variant="outlined" color="primary">ADD</Button>
+                        <Button onClick={() => this.state.codeExecutionEngine.addInstruction("ADC", 0, 1, 2, undefined)} variant="outlined" color="primary">ADC</Button>
+                        <Button onClick={() => this.state.codeExecutionEngine.addInstruction("SUB", 0, 1, 2, undefined)} variant="outlined" color="primary">SUB</Button>
+                        <Button onClick={() => this.state.codeExecutionEngine.addInstruction("SBC", 0, 1, 2, undefined)} variant="outlined" color="primary">SBC</Button>
+                        <Button onClick={() => this.state.codeExecutionEngine.addInstruction("RSB", 0, 1, 2, undefined)} variant="outlined" color="primary">RSB</Button>
+                        <Button onClick={() => this.state.codeExecutionEngine.addInstruction("RSC", 0, 1, 2, undefined)} variant="outlined" color="primary">RSC</Button>
+                        <Button onClick={() => this.state.codeExecutionEngine.addInstruction("MUL", 0, 1, 2, undefined)} variant="outlined" color="primary">MUL</Button>
+                        <Button onClick={() => this.state.codeExecutionEngine.addInstruction("MLA", 0, 1, 2, 3)} variant="outlined" color="primary">MLA</Button>
                     </Box>
                 </Box>
                 <Box width="79.75%" height="100%">
                     <Box height="79.5%" mb="0.5%">
-                        <textarea id="textarea" className="App-userinput" value={this.state.userInput.toString()} onChange={e => this.userInputChange(e)} onKeyDown={e => this.allowTabKey(e)} />
+                        <textarea className="App-userinput" value={this.state.userInput.toString()} onChange={e => this.userInputChange(e)} onKeyDown={e => this.allowTabKey(e)} />
                     </Box>
-                    <Box height="19.5%" className="App-terminal">
-                        Terminal
+                    <Box height="19.5%">
+                        <textarea className="App-terminal" value={this.state.terminal.toString()} disabled />
                     </Box>
                 </Box>
             </div>
@@ -119,36 +124,85 @@ class Cpu extends React.Component<any, CpuState> {
 
 class CodeExecutionEngine {
     cpu: Cpu;
+    instructions: Instruction[];
+    instructionIndex: number;
 
     constructor(cpu: Cpu) {
         this.cpu = cpu;
+        this.instructions = [];
+        this.instructionIndex = 0;
     }
 
-    instruction(inst: String, y: number, a: number, b: number, x?: number) {
-        let newRegisters = [...this.cpu.state.registers];
+    addInstruction(instruction: string, y: number | undefined, a: number | undefined, b: number | undefined, x: number | undefined) {
+        let tempType = "art";
+        let newInstruction = new Instruction(this, instruction, tempType, y, a, b, x);
+        this.instructions.push(newInstruction);
+    }
 
-        let temp = this.arithmetic(inst, newRegisters[a].getValue(), newRegisters[b].getValue(),
-            (typeof x !== 'undefined') ? newRegisters[x].getValue() : x)
-        if (typeof temp !== 'undefined') {
-            newRegisters[y].setValue(this.setTo32Bit(temp));
+    executeNextInstruction() {
+        let currentInstruction = this.instructions[this.instructionIndex];
+        if (typeof currentInstruction !== 'undefined') {
+            currentInstruction.executeInstruction();
+            this.instructionIndex++;
         }
-        this.cpu.setState({ registers: newRegisters });
+        else {
+            let message = "\n<" + new Date().toLocaleTimeString() + "> Instructions finished!";
+            let newTerminal = this.cpu.state.terminal + message;
+            this.cpu.setState({ terminal: newTerminal })
+        }
+    }
+}
 
-        console.log(parse(this.cpu.state.userInput.toString()))
-        console.log(parse(this.cpu.state.userInput.toString()).ast.section.text.code)
+class Instruction {
+    codeExecutionEngine: CodeExecutionEngine;
+    instruction: string;
+    type: string;
+    op1: number | undefined;
+    op2: number | undefined;
+    op3: number | undefined;
+    op4: number | undefined;
+
+    constructor(codeExecutionEngine: CodeExecutionEngine, instruction: string, type: string, op1: number | undefined, op2: number | undefined,
+        op3: number | undefined, op4: number | undefined) {
+        this.codeExecutionEngine = codeExecutionEngine;
+        this.instruction = instruction;
+        this.type = type;
+        this.op1 = op1;
+        this.op2 = op2;
+        this.op3 = op3;
+        this.op4 = op4;
     }
 
-    arithmetic(inst: String, a: number, b: number, x?: number): number | undefined {
-        switch (inst) {
+    executeInstruction() {
+        switch (this.type) {
+            case "art":
+                if (typeof this.op1 !== 'undefined' && typeof this.op2 !== 'undefined' && typeof this.op3 !== 'undefined') {
+                    let newRegisters = [...this.codeExecutionEngine.cpu.state.registers];
+
+                    let result = this.arithmetic(newRegisters[this.op2].getValue(), newRegisters[this.op3].getValue(),
+                        (typeof this.op4 !== 'undefined') ? newRegisters[this.op4].getValue() : this.op4);
+                    if (typeof result !== 'undefined') {
+                        newRegisters[this.op1].setValue(this.setTo32Bit(result));
+                    }
+
+                    this.codeExecutionEngine.cpu.setState({ registers: newRegisters });
+                }
+                break;
+        }
+    }
+
+    arithmetic(a: number, b: number, x?: number): number | undefined {
+        switch (this.instruction) {
             case "ADD": return (a + b);
-            case "ADC": return (a + b + this.cpu.state.statusRegister.getC());
+            case "ADC": return (a + b + this.codeExecutionEngine.cpu.state.statusRegister.getC());
             case "SUB": return (a - b);
-            case "SBC": return (a - b + this.cpu.state.statusRegister.getC() - 1);
+            case "SBC": return (a - b + this.codeExecutionEngine.cpu.state.statusRegister.getC() - 1);
             case "RSB": return (b - a);
-            case "RSC": return (b - a + this.cpu.state.statusRegister.getC() - 1);
+            case "RSC": return (b - a + this.codeExecutionEngine.cpu.state.statusRegister.getC() - 1);
             case "MUL": return (a * b);
             case "MLA": return ((typeof x !== 'undefined') ? (a * b) + x : undefined);
         }
+
         return undefined;
     }
 
