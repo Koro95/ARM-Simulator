@@ -95,13 +95,20 @@ class Cpu extends React.Component<any, CpuState> {
                         <div> <div className="Reg-names">pc</div> <InputBase margin='none' value={this.state.registers[15].toHex()} onChange={e => this.regValueChange(15, e)} /> </div>
                     </Box>
                     <Box height="29.75%" mb="0.5%" className="App-debugger">
-                        <div>N: {this.state.statusRegister.getN()}, Z: {this.state.statusRegister.getZ()}, C: {this.state.statusRegister.getC()}, V {this.state.statusRegister.getV()}</div>
+                        <div>N: {this.state.statusRegister.getN()}, Z: {this.state.statusRegister.getZ()}, C: {this.state.statusRegister.getC()}, V: {this.state.statusRegister.getV()}</div>
                         <Button onClick={() => this.state.codeExecutionEngine.executeNextInstruction()} variant="outlined" color="primary">NextInst</Button>
                     </Box>
                     <Box height="19.75%" className="App-options">
                         <div>Options</div>
                         <div>
+                            <Button onClick={() => this.state.codeExecutionEngine.addInstruction("AND", "log", 0, 1, 2, undefined)} variant="outlined" color="primary">AND</Button>
+                            <Button onClick={() => this.state.codeExecutionEngine.addInstruction("ORR", "log", 0, 1, 2, undefined)} variant="outlined" color="primary">ORR</Button>
+                            <Button onClick={() => this.state.codeExecutionEngine.addInstruction("EOR", "log", 0, 1, 2, undefined)} variant="outlined" color="primary">EOR</Button>
+                            <Button onClick={() => this.state.codeExecutionEngine.addInstruction("BIC", "log", 0, 1, 2, undefined)} variant="outlined" color="primary">BIC</Button>
                             <Button onClick={() => this.state.codeExecutionEngine.addInstruction("CMP", "log", 0, 1, undefined, undefined)} variant="outlined" color="primary">CMP</Button>
+                            <Button onClick={() => this.state.codeExecutionEngine.addInstruction("CMN", "log", 0, 1, undefined, undefined)} variant="outlined" color="primary">CMN</Button>
+                            <Button onClick={() => this.state.codeExecutionEngine.addInstruction("TST", "log", 0, 1, undefined, undefined)} variant="outlined" color="primary">TST</Button>
+                            <Button onClick={() => this.state.codeExecutionEngine.addInstruction("TEQ", "log", 0, 1, undefined, undefined)} variant="outlined" color="primary">TEQ</Button>
                         </div>
                         <div>
                             <Button onClick={() => this.state.codeExecutionEngine.addInstruction("ADD", "art", 0, 1, 2, undefined)} variant="outlined" color="primary">ADD</Button>
@@ -166,6 +173,7 @@ class Instruction {
     op2: number | undefined;
     op3: number | undefined;
     op4: number | undefined;
+    updateStatusRegisters: boolean;
 
     constructor(codeExecutionEngine: CodeExecutionEngine, instruction: string, type: string, op1: number | undefined, op2: number | undefined,
         op3: number | undefined, op4: number | undefined) {
@@ -176,6 +184,7 @@ class Instruction {
         this.op2 = op2;
         this.op3 = op3;
         this.op4 = op4;
+        this.updateStatusRegisters = false;
     }
 
     executeInstruction() {
@@ -186,11 +195,11 @@ class Instruction {
 
                     let result = this.arithmetic(newRegisters[this.op2].getValue(), newRegisters[this.op3].getValue(),
                         (typeof this.op4 !== 'undefined') ? newRegisters[this.op4].getValue() : this.op4);
+
                     if (typeof result !== 'undefined') {
                         newRegisters[this.op1].setValue(this.setTo32Bit(result));
+                        this.codeExecutionEngine.cpu.setState({ registers: newRegisters });
                     }
-
-                    this.codeExecutionEngine.cpu.setState({ registers: newRegisters });
                 }
                 break;
             case "log":
@@ -199,58 +208,70 @@ class Instruction {
 
                     if (typeof this.op3 !== 'undefined') {
                         let result = this.logical(newRegisters[this.op2].getValue(), newRegisters[this.op3].getValue());
+
                         if (typeof result !== 'undefined') {
                             newRegisters[this.op1].setValue(this.setTo32Bit(result));
                             this.codeExecutionEngine.cpu.setState({ registers: newRegisters });
                         }
                     }
                     else {
-                        let result = this.logical(newRegisters[this.op1].getValue(), newRegisters[this.op2].getValue());
-                        if (typeof result !== 'undefined') {
-                            let newStatusRegister = this.codeExecutionEngine.cpu.state.statusRegister;
-                            newStatusRegister.updateFlagsArithmetic(result);
-                            this.codeExecutionEngine.cpu.setState({ statusRegister: newStatusRegister });
-                        }
+                        this.logical(newRegisters[this.op1].getValue(), newRegisters[this.op2].getValue());
                     }
                 }
+        }
+
+        if (this.updateStatusRegisters) {
+            this.codeExecutionEngine.cpu.setState({ statusRegister: this.codeExecutionEngine.cpu.state.statusRegister });
         }
     }
 
     arithmetic(a: number, b: number, x?: number): number | undefined {
+        let y = undefined;
+        let isArithmetic = true;
+
         switch (this.instruction) {
-            case "ADD": return (a + b);
-            case "ADC": return (a + b + this.codeExecutionEngine.cpu.state.statusRegister.getC());
-            case "SUB": return (a - b);
-            case "SBC": return (a - b + this.codeExecutionEngine.cpu.state.statusRegister.getC() - 1);
-            case "RSB": return (b - a);
-            case "RSC": return (b - a + this.codeExecutionEngine.cpu.state.statusRegister.getC() - 1);
-            case "MUL": return (a * b);
-            case "MLA": return ((typeof x !== 'undefined') ? (a * b) + x : undefined);
+            case "ADD": y = (a + b); break;
+            case "ADC": y = (a + b + this.codeExecutionEngine.cpu.state.statusRegister.getC()); break;
+            case "SUB": y = (a + (~b + 1)); break;
+            case "SBC": y = (a + (~b + 1) + this.codeExecutionEngine.cpu.state.statusRegister.getC() - 1); break;
+            case "RSB": y = (b + (~a + 1)); break;
+            case "RSC": y = (b + (~a + 1) + this.codeExecutionEngine.cpu.state.statusRegister.getC() - 1); break;
+            case "MUL": y = (a * b); isArithmetic = false; break;
+            case "MLA": y = ((typeof x !== 'undefined') ? (a * b) + x : undefined); isArithmetic = false;
         }
 
-        return undefined;
+        if (this.updateStatusRegisters && typeof y !== 'undefined') {
+            this.codeExecutionEngine.cpu.state.statusRegister.updateFlags(isArithmetic, y, a, b);
+        }
+
+        return y;
     }
 
     logical(a: number, b: number): number | undefined {
+        let y = undefined;
+        let isArithmetic = false;
+
         switch (this.instruction) {
-            case "AND":
-            case "TST": return (a & b);
-            case "ORR": return (a | b);
-            case "EOR":
-            case "TEQ": return (a ^ b);
-            case "BIC": return (a & (~b));
-            case "CMP": return (a - b);
-            case "CMN": return (a + b);
+            case "AND": y = (a & b); break;
+            case "ORR": y = (a | b); break;
+            case "TEQ": y = (a ^ b); break;
+            case "BIC": y = (a & (~b)); break;
+            case "CMP": y = (a + (~b + 1)); isArithmetic = true; this.updateStatusRegisters = true; break;
+            case "CMN": y = (a + b); isArithmetic = true; this.updateStatusRegisters = true; break;
+            case "TST": y = (a & b); this.updateStatusRegisters = true; break;
+            case "EOR": y = (a ^ b); this.updateStatusRegisters = true;
         }
 
-        return undefined;
+        if (this.updateStatusRegisters && typeof y !== 'undefined') {
+            this.codeExecutionEngine.cpu.state.statusRegister.updateFlags(isArithmetic, y, a, b);
+        }
+
+        return y;
     }
 
 
     setTo32Bit(x: number): number {
-        x = x << 32;
-        x = x >>> 32;
-        return x;
+        return x >>> 0;
     }
 }
 
@@ -280,11 +301,27 @@ class StatusRegister {
         this.flags = [0, 0, 0, 0]
     }
 
-    updateFlagsArithmetic(x: number) {
-        this.setN(((x & 0x80000000) === 0) ? 0 : 1);
-        this.setZ(((x & 0x00000000) === 0) ? 1 : 0);
-        this.setC(((x >>> 32) === 0) ? 0 : 1);
-        //TODO: OVERFLOW FLAG, DIFFERENT SUBTRACTION WITH OVERFLOW IN INSTRUCTION
+    // Rules for updating the flags:
+    // ARM Reference Manual (Issue I - 2005), Section A2.5.2 The condition code flags
+    updateFlags(isArithmetic: boolean, y: number, a: number, b: number) {
+        this.setN(((y & 0x80000000) === 0) ? 0 : 1);
+        this.setZ(((y & 0xffffffff) === 0) ? 1 : 0);
+
+        // C and V update for arithmetic operations that are not a multiplication
+        if (isArithmetic) {
+            this.setC((y > 0xffffffff) ? 1 : 0);
+
+            let signBeforeA = a & 0x80000000;
+            let signBeforeB = b & 0x80000000;
+            if (signBeforeA === signBeforeB && this.getZ() !== 1) {
+                let signAfter = y & 0x80000000;
+                this.setV((signBeforeA === signAfter) ? 0 : 1);
+            }
+        }
+        // C and V updates for logical operations, V left unchanged
+        else {
+            // this.setC() - TODO: shift operand, no overflow change
+        }
     }
 
     setN(x: number) {
