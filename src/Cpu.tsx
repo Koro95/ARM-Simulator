@@ -101,24 +101,24 @@ class Cpu extends React.Component<any, CpuState> {
                     <Box height="19.75%" className="App-options">
                         <div>Options</div>
                         <div>
-                            <Button onClick={() => this.state.codeExecutionEngine.addInstruction("AND", "log", 0, 1, 2, undefined)} variant="outlined" color="primary">AND</Button>
-                            <Button onClick={() => this.state.codeExecutionEngine.addInstruction("ORR", "log", 0, 1, 2, undefined)} variant="outlined" color="primary">ORR</Button>
-                            <Button onClick={() => this.state.codeExecutionEngine.addInstruction("EOR", "log", 0, 1, 2, undefined)} variant="outlined" color="primary">EOR</Button>
-                            <Button onClick={() => this.state.codeExecutionEngine.addInstruction("BIC", "log", 0, 1, 2, undefined)} variant="outlined" color="primary">BIC</Button>
-                            <Button onClick={() => this.state.codeExecutionEngine.addInstruction("CMP", "log", 0, 1, undefined, undefined)} variant="outlined" color="primary">CMP</Button>
-                            <Button onClick={() => this.state.codeExecutionEngine.addInstruction("CMN", "log", 0, 1, undefined, undefined)} variant="outlined" color="primary">CMN</Button>
-                            <Button onClick={() => this.state.codeExecutionEngine.addInstruction("TST", "log", 0, 1, undefined, undefined)} variant="outlined" color="primary">TST</Button>
-                            <Button onClick={() => this.state.codeExecutionEngine.addInstruction("TEQ", "log", 0, 1, undefined, undefined)} variant="outlined" color="primary">TEQ</Button>
+                            <Button onClick={() => this.state.codeExecutionEngine.addInstruction("AND", "log", 0, 1, 2, undefined, undefined)} variant="outlined" color="primary">AND</Button>
+                            <Button onClick={() => this.state.codeExecutionEngine.addInstruction("ORR", "log", 0, 1, 2, undefined, undefined)} variant="outlined" color="primary">ORR</Button>
+                            <Button onClick={() => this.state.codeExecutionEngine.addInstruction("EOR", "log", 0, 1, 2, undefined, undefined)} variant="outlined" color="primary">EOR</Button>
+                            <Button onClick={() => this.state.codeExecutionEngine.addInstruction("BIC", "log", 0, 1, 2, undefined, undefined)} variant="outlined" color="primary">BIC</Button>
+                            <Button onClick={() => this.state.codeExecutionEngine.addInstruction("CMP", "log", 0, 1, undefined, undefined, undefined)} variant="outlined" color="primary">CMP</Button>
+                            <Button onClick={() => this.state.codeExecutionEngine.addInstruction("CMN", "log", 0, 1, undefined, undefined, undefined)} variant="outlined" color="primary">CMN</Button>
+                            <Button onClick={() => this.state.codeExecutionEngine.addInstruction("TST", "log", 0, 1, undefined, undefined, undefined)} variant="outlined" color="primary">TST</Button>
+                            <Button onClick={() => this.state.codeExecutionEngine.addInstruction("TEQ", "log", 0, 1, undefined, undefined, undefined)} variant="outlined" color="primary">TEQ</Button>
                         </div>
                         <div>
-                            <Button onClick={() => this.state.codeExecutionEngine.addInstruction("ADD", "art", 0, 1, 2, undefined)} variant="outlined" color="primary">ADD</Button>
-                            <Button onClick={() => this.state.codeExecutionEngine.addInstruction("ADC", "art", 0, 1, 2, undefined)} variant="outlined" color="primary">ADC</Button>
-                            <Button onClick={() => this.state.codeExecutionEngine.addInstruction("SUB", "art", 0, 1, 2, undefined)} variant="outlined" color="primary">SUB</Button>
-                            <Button onClick={() => this.state.codeExecutionEngine.addInstruction("SBC", "art", 0, 1, 2, undefined)} variant="outlined" color="primary">SBC</Button>
-                            <Button onClick={() => this.state.codeExecutionEngine.addInstruction("RSB", "art", 0, 1, 2, undefined)} variant="outlined" color="primary">RSB</Button>
-                            <Button onClick={() => this.state.codeExecutionEngine.addInstruction("RSC", "art", 0, 1, 2, undefined)} variant="outlined" color="primary">RSC</Button>
-                            <Button onClick={() => this.state.codeExecutionEngine.addInstruction("MUL", "art", 0, 1, 2, undefined)} variant="outlined" color="primary">MUL</Button>
-                            <Button onClick={() => this.state.codeExecutionEngine.addInstruction("MLA", "art", 0, 1, 2, 3)} variant="outlined" color="primary">MLA</Button>
+                            <Button onClick={() => this.state.codeExecutionEngine.addInstruction("ADD", "art", 0, 1, 2, undefined, undefined)} variant="outlined" color="primary">ADD</Button>
+                            <Button onClick={() => this.state.codeExecutionEngine.addInstruction("ADC", "art", 0, 1, 2, undefined, undefined)} variant="outlined" color="primary">ADC</Button>
+                            <Button onClick={() => this.state.codeExecutionEngine.addInstruction("SUB", "art", 0, 1, 2, undefined, undefined)} variant="outlined" color="primary">SUB</Button>
+                            <Button onClick={() => this.state.codeExecutionEngine.addInstruction("SBC", "art", 0, 1, 2, undefined, undefined)} variant="outlined" color="primary">SBC</Button>
+                            <Button onClick={() => this.state.codeExecutionEngine.addInstruction("RSB", "art", 0, 1, 2, undefined, undefined)} variant="outlined" color="primary">RSB</Button>
+                            <Button onClick={() => this.state.codeExecutionEngine.addInstruction("RSC", "art", 0, 1, 2, undefined, undefined)} variant="outlined" color="primary">RSC</Button>
+                            <Button onClick={() => this.state.codeExecutionEngine.addInstruction("MUL", "art", 0, 1, 2, undefined, undefined)} variant="outlined" color="primary">MUL</Button>
+                            <Button onClick={() => this.state.codeExecutionEngine.addInstruction("MLA", "art", 0, 1, 2, 3, undefined)} variant="outlined" color="primary">MLA</Button>
                         </div>
                     </Box>
                 </Box>
@@ -146,8 +146,9 @@ class CodeExecutionEngine {
         this.instructionIndex = 0;
     }
 
-    addInstruction(instruction: string, type: string, y: number | undefined, a: number | undefined, b: number | undefined, x: number | undefined) {
-        let newInstruction = new Instruction(this, instruction, type, y, a, b, x);
+    addInstruction(instruction: string, type: string, op1: number | undefined, op2: number | undefined, op3: number | undefined, op4: number | undefined,
+        shift: string | undefined) {
+        let newInstruction = new Instruction(this, instruction, type, op1, op2, op3, op4, shift);
         this.instructions.push(newInstruction);
     }
 
@@ -173,10 +174,12 @@ class Instruction {
     op2: number | undefined;
     op3: number | undefined;
     op4: number | undefined;
+    shift: string | undefined;
+    result: number | undefined;
     updateStatusRegisters: boolean;
 
     constructor(codeExecutionEngine: CodeExecutionEngine, instruction: string, type: string, op1: number | undefined, op2: number | undefined,
-        op3: number | undefined, op4: number | undefined) {
+        op3: number | undefined, op4: number | undefined, shift: string | undefined) {
         this.codeExecutionEngine = codeExecutionEngine;
         this.instruction = instruction;
         this.type = type;
@@ -184,42 +187,56 @@ class Instruction {
         this.op2 = op2;
         this.op3 = op3;
         this.op4 = op4;
+        this.shift = shift;
         this.updateStatusRegisters = false;
+        this.result = undefined;
     }
 
     executeInstruction() {
+        let newRegisters = [...this.codeExecutionEngine.cpu.state.registers];
+
         switch (this.type) {
             case "art":
-                if (typeof this.op1 !== 'undefined' && typeof this.op2 !== 'undefined' && typeof this.op3 !== 'undefined') {
-                    let newRegisters = [...this.codeExecutionEngine.cpu.state.registers];
+                if (typeof this.op2 !== 'undefined' && typeof this.op3 !== 'undefined') {
+                    let a = newRegisters[this.op2].getValue();
+                    let b = this.barrelShifter(newRegisters[this.op3].getValue());
+                    let x = (typeof this.op4 !== 'undefined') ? newRegisters[this.op4].getValue() : this.op4;
 
-                    let result = this.arithmetic(newRegisters[this.op2].getValue(), newRegisters[this.op3].getValue(),
-                        (typeof this.op4 !== 'undefined') ? newRegisters[this.op4].getValue() : this.op4);
-
-                    if (typeof result !== 'undefined') {
-                        newRegisters[this.op1].setValue(this.setTo32Bit(result));
-                        this.codeExecutionEngine.cpu.setState({ registers: newRegisters });
-                    }
+                    this.result = this.arithmetic(a, b, x);
                 }
                 break;
             case "log":
                 if (typeof this.op1 !== 'undefined' && typeof this.op2 !== 'undefined') {
-                    let newRegisters = [...this.codeExecutionEngine.cpu.state.registers];
-
+                    // AND, ORR, EOR, BIC have 3 operands and need result to update
                     if (typeof this.op3 !== 'undefined') {
-                        let result = this.logical(newRegisters[this.op2].getValue(), newRegisters[this.op3].getValue());
+                        let a = newRegisters[this.op2].getValue();
+                        let b = this.barrelShifter(newRegisters[this.op3].getValue());
 
-                        if (typeof result !== 'undefined') {
-                            newRegisters[this.op1].setValue(this.setTo32Bit(result));
-                            this.codeExecutionEngine.cpu.setState({ registers: newRegisters });
-                        }
+                        this.result = this.logical(a, b);
                     }
+                    // CMP, CMN, TST, TEQ have 2 operands and don't need the result
                     else {
-                        this.logical(newRegisters[this.op1].getValue(), newRegisters[this.op2].getValue());
+                        let a = newRegisters[this.op1].getValue();
+                        let b = this.barrelShifter(newRegisters[this.op2].getValue());
+
+                        this.logical(a, b);
                     }
                 }
+                break;
+            case "cpj":
+                if (typeof this.op2 !== 'undefined') {
+                    let b = this.barrelShifter(newRegisters[this.op2].getValue());
+
+                    this.result = this.copyShiftJump(b);
+                }
+
         }
 
+        // update registers
+        if (typeof this.result !== 'undefined' && typeof this.op1 !== 'undefined') {
+            newRegisters[this.op1].setValue(this.setTo32Bit(this.result));
+            this.codeExecutionEngine.cpu.setState({ registers: newRegisters });
+        }
         if (this.updateStatusRegisters) {
             this.codeExecutionEngine.cpu.setState({ statusRegister: this.codeExecutionEngine.cpu.state.statusRegister });
         }
@@ -269,6 +286,61 @@ class Instruction {
         return y;
     }
 
+    copyShiftJump(b: number): number | undefined {
+        let y = undefined;
+
+        switch (this.instruction) {
+            case "MOV": break;
+            case "MVN":
+        }
+
+        return y;
+    }
+
+    barrelShifter(x: number): number {
+        let y = x;
+
+        if (typeof this.shift === 'string') {
+            let shiftType = this.shift.substr(0, 3)
+            let temp = parseInt(this.shift.substr(5));
+            if (temp === 0) {
+                return y;
+            }
+
+            let shiftAmount = this.shift.substr(4, 1) === "#" ? temp : this.codeExecutionEngine.cpu.state.registers[temp].getValue();
+            let carry;
+
+            switch (shiftType) {
+                case "LSL":
+                case "ASL":
+                    y = x << shiftAmount;
+                    carry = (x << (shiftAmount - 1)) & 0x80000000;
+                    break;
+                case "LSR":
+                    y = x >>> shiftAmount;
+                    carry = (x >>> (shiftAmount - 1) & 1);
+                    break;
+                case "ASR":
+                    y = x >> shiftAmount;
+                    carry = (x >> (shiftAmount - 1) & 1);
+                    break;
+                case "ROR":
+                    y = (x >>> shiftAmount) | (x << (32 - shiftAmount));
+                    carry = (x >>> (shiftAmount - 1) & 1);
+                    break;
+                case "RRX":
+                    y = (x >>> shiftAmount) | (x << (32 - shiftAmount + 1));
+                    y |= (this.codeExecutionEngine.cpu.state.statusRegister.getC() << (32 - shiftAmount));
+                    carry = (x >>> (shiftAmount - 1) & 1);
+                    break;
+            }
+
+            this.codeExecutionEngine.cpu.state.statusRegister.setC(carry === 0 ? 0 : 1);
+            this.updateStatusRegisters = true;
+        }
+
+        return y;
+    }
 
     setTo32Bit(x: number): number {
         return x >>> 0;
