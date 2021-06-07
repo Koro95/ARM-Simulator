@@ -2,6 +2,8 @@ import React from "react";
 import InputBase from '@material-ui/core/InputBase';
 import Box from '@material-ui/core/Box';
 import Button from '@material-ui/core/Button';
+import { Tab, Tabs, TabList, TabPanel } from 'react-tabs';
+import 'react-tabs/style/react-tabs.css';
 
 const parse = require('./parser/parser').parse;
 
@@ -124,7 +126,20 @@ class Cpu extends React.Component<any, CpuState> {
                 </Box>
                 <Box width="79.75%" height="100%">
                     <Box height="79.5%" mb="0.5%">
-                        <textarea className="App-userinput" value={this.state.userInput.toString()} onChange={e => this.userInputChange(e)} onKeyDown={e => this.allowTabKey(e)} />
+                        <Tabs>
+                            <TabList>
+                                <Tab>Code</Tab>
+                                <Tab>Memory</Tab>
+                            </TabList>
+
+                            <TabPanel>
+                                <textarea className="App-userinput" value={this.state.userInput.toString()} onChange={e => this.userInputChange(e)} onKeyDown={e => this.allowTabKey(e)} />
+                            </TabPanel>
+                            <TabPanel>
+                            <textarea className="App-userinput" value={"0x1f415f Memory"}  />
+                            </TabPanel>
+                        </Tabs>
+
                     </Box>
                     <Box height="19.5%">
                         <textarea className="App-terminal" value={this.state.terminal.toString()} disabled />
@@ -318,20 +333,20 @@ class Instruction {
                     break;
                 case "LSR":
                     y = x >>> shiftAmount;
-                    carry = (x >>> (shiftAmount - 1) & 1);
+                    carry = (x >>> (shiftAmount - 1)) & 1;
                     break;
                 case "ASR":
                     y = x >> shiftAmount;
-                    carry = (x >> (shiftAmount - 1) & 1);
+                    carry = (x >> (shiftAmount - 1)) & 1;
                     break;
                 case "ROR":
                     y = (x >>> shiftAmount) | (x << (32 - shiftAmount));
-                    carry = (x >>> (shiftAmount - 1) & 1);
+                    carry = (x >>> (shiftAmount - 1)) & 1;
                     break;
                 case "RRX":
                     y = (x >>> shiftAmount) | (x << (32 - shiftAmount + 1));
                     y |= (this.codeExecutionEngine.cpu.state.statusRegister.getC() << (32 - shiftAmount));
-                    carry = (x >>> (shiftAmount - 1) & 1);
+                    carry = (x >>> (shiftAmount - 1)) & 1;
                     break;
             }
 
