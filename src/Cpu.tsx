@@ -15,6 +15,7 @@ type CpuState = {
     codeExecutionEngine: CodeExecutionEngine;
     userInput: String;
     terminal: String;
+    mainMemory: String;
 }
 
 class Cpu extends React.Component<any, CpuState> {
@@ -30,7 +31,7 @@ class Cpu extends React.Component<any, CpuState> {
         this.state = {
             registers: initializedRegisters, statusRegister: new StatusRegister(),
             codeExecutionEngine: new CodeExecutionEngine(this), userInput: ".arm\n.text\n.global _start\n_start:\n\tADD r1, r2, r3",
-            terminal: welcomeMessage
+            terminal: welcomeMessage, mainMemory: ""
         };
     }
 
@@ -74,31 +75,36 @@ class Cpu extends React.Component<any, CpuState> {
         this.setState({ registers: newRegisters });
     }
 
+    toHex(x: number): String {
+        return ('00000000' + x.toString(16)).slice(-8);
+    }
+
     render() {
         return (
             <div className="App-body">
                 <Box width="19.75%" mr="0.5%" height="100%">
                     <Box height="50%" mb="0.5%" className="App-cpustate">
-                        <div> <div className="Reg-names">r0</div> <InputBase margin='none' value={this.state.registers[0].toHex()} onChange={e => this.regValueChange(0, e)} /> </div>
-                        <div> <div className="Reg-names">r1</div> <InputBase margin='none' value={this.state.registers[1].toHex()} onChange={e => this.regValueChange(1, e)} /> </div>
-                        <div> <div className="Reg-names">r2</div> <InputBase margin='none' value={this.state.registers[2].toHex()} onChange={e => this.regValueChange(2, e)} /> </div>
-                        <div> <div className="Reg-names">r3</div> <InputBase margin='none' value={this.state.registers[3].toHex()} onChange={e => this.regValueChange(3, e)} /> </div>
-                        <div> <div className="Reg-names">r4</div> <InputBase margin='none' value={this.state.registers[4].toHex()} onChange={e => this.regValueChange(4, e)} /> </div>
-                        <div> <div className="Reg-names">r5</div> <InputBase margin='none' value={this.state.registers[5].toHex()} onChange={e => this.regValueChange(5, e)} /> </div>
-                        <div> <div className="Reg-names">r6</div> <InputBase margin='none' value={this.state.registers[6].toHex()} onChange={e => this.regValueChange(6, e)} /> </div>
-                        <div> <div className="Reg-names">r7</div> <InputBase margin='none' value={this.state.registers[7].toHex()} onChange={e => this.regValueChange(7, e)} /> </div>
-                        <div> <div className="Reg-names">r8</div> <InputBase margin='none' value={this.state.registers[8].toHex()} onChange={e => this.regValueChange(8, e)} /> </div>
-                        <div> <div className="Reg-names">r9</div> <InputBase margin='none' value={this.state.registers[9].toHex()} onChange={e => this.regValueChange(9, e)} /> </div>
-                        <div> <div className="Reg-names">r10</div> <InputBase margin='none' value={this.state.registers[10].toHex()} onChange={e => this.regValueChange(10, e)} /> </div>
-                        <div> <div className="Reg-names">r11</div> <InputBase margin='none' value={this.state.registers[11].toHex()} onChange={e => this.regValueChange(11, e)} /> </div>
-                        <div> <div className="Reg-names">r12</div> <InputBase margin='none' value={this.state.registers[12].toHex()} onChange={e => this.regValueChange(12, e)} /> </div>
-                        <div> <div className="Reg-names">sp</div> <InputBase margin='none' value={this.state.registers[13].toHex()} onChange={e => this.regValueChange(13, e)} /> </div>
-                        <div> <div className="Reg-names">lr</div> <InputBase margin='none' value={this.state.registers[14].toHex()} onChange={e => this.regValueChange(14, e)} /> </div>
-                        <div> <div className="Reg-names">pc</div> <InputBase margin='none' value={this.state.registers[15].toHex()} onChange={e => this.regValueChange(15, e)} /> </div>
+                        <div> <div className="Reg-names">r0</div> <InputBase margin='none' value={this.toHex(this.state.registers[0].getValue())} onChange={e => this.regValueChange(0, e)} /> </div>
+                        <div> <div className="Reg-names">r1</div> <InputBase margin='none' value={this.toHex(this.state.registers[1].getValue())} onChange={e => this.regValueChange(1, e)} /> </div>
+                        <div> <div className="Reg-names">r2</div> <InputBase margin='none' value={this.toHex(this.state.registers[2].getValue())} onChange={e => this.regValueChange(2, e)} /> </div>
+                        <div> <div className="Reg-names">r3</div> <InputBase margin='none' value={this.toHex(this.state.registers[3].getValue())} onChange={e => this.regValueChange(3, e)} /> </div>
+                        <div> <div className="Reg-names">r4</div> <InputBase margin='none' value={this.toHex(this.state.registers[4].getValue())} onChange={e => this.regValueChange(4, e)} /> </div>
+                        <div> <div className="Reg-names">r5</div> <InputBase margin='none' value={this.toHex(this.state.registers[5].getValue())} onChange={e => this.regValueChange(5, e)} /> </div>
+                        <div> <div className="Reg-names">r6</div> <InputBase margin='none' value={this.toHex(this.state.registers[6].getValue())} onChange={e => this.regValueChange(6, e)} /> </div>
+                        <div> <div className="Reg-names">r7</div> <InputBase margin='none' value={this.toHex(this.state.registers[7].getValue())} onChange={e => this.regValueChange(7, e)} /> </div>
+                        <div> <div className="Reg-names">r8</div> <InputBase margin='none' value={this.toHex(this.state.registers[8].getValue())} onChange={e => this.regValueChange(8, e)} /> </div>
+                        <div> <div className="Reg-names">r9</div> <InputBase margin='none' value={this.toHex(this.state.registers[9].getValue())} onChange={e => this.regValueChange(9, e)} /> </div>
+                        <div> <div className="Reg-names">r10</div> <InputBase margin='none' value={this.toHex(this.state.registers[10].getValue())} onChange={e => this.regValueChange(10, e)} /> </div>
+                        <div> <div className="Reg-names">r11</div> <InputBase margin='none' value={this.toHex(this.state.registers[11].getValue())} onChange={e => this.regValueChange(11, e)} /> </div>
+                        <div> <div className="Reg-names">r12</div> <InputBase margin='none' value={this.toHex(this.state.registers[12].getValue())} onChange={e => this.regValueChange(12, e)} /> </div>
+                        <div> <div className="Reg-names">sp</div> <InputBase margin='none' value={this.toHex(this.state.registers[13].getValue())} onChange={e => this.regValueChange(13, e)} /> </div>
+                        <div> <div className="Reg-names">lr</div> <InputBase margin='none' value={this.toHex(this.state.registers[14].getValue())} onChange={e => this.regValueChange(14, e)} /> </div>
+                        <div> <div className="Reg-names">pc</div> <InputBase margin='none' value={this.toHex(this.state.registers[15].getValue())} onChange={e => this.regValueChange(15, e)} /> </div>
                     </Box>
                     <Box height="29.75%" mb="0.5%" className="App-debugger">
                         <div>N: {this.state.statusRegister.getN()}, Z: {this.state.statusRegister.getZ()}, C: {this.state.statusRegister.getC()}, V: {this.state.statusRegister.getV()}</div>
                         <Button onClick={() => this.state.codeExecutionEngine.executeNextInstruction()} variant="outlined" color="primary">NextInst</Button>
+                        <Button onClick={() => this.state.codeExecutionEngine.compile()} variant="outlined" color="primary">Compile Memory</Button>
                     </Box>
                     <Box height="19.75%" className="App-options">
                         <div>Options</div>
@@ -136,7 +142,7 @@ class Cpu extends React.Component<any, CpuState> {
                                 <textarea className="App-userinput" value={this.state.userInput.toString()} onChange={e => this.userInputChange(e)} onKeyDown={e => this.allowTabKey(e)} />
                             </TabPanel>
                             <TabPanel>
-                            <textarea className="App-userinput" value={"0x1f415f Memory"}  />
+                                <textarea className="App-userinput" value={this.state.mainMemory.toString()}  />
                             </TabPanel>
                         </Tabs>
 
@@ -178,6 +184,19 @@ class CodeExecutionEngine {
             let newTerminal = this.cpu.state.terminal + message;
             this.cpu.setState({ terminal: newTerminal })
         }
+    }
+
+    compile() {
+        let toHex = this.cpu.toHex;
+        let memory = "";
+        let address = 0;
+
+        this.instructions.forEach(function (currentInstruction) {
+            memory +=  toHex(address) + currentInstruction.instruction.padStart(8, " ").padEnd(10, " ") +"r"+ currentInstruction.op1 +", r"+ currentInstruction.op2 + "\n";
+            address += 4;
+        });
+        
+        this.cpu.setState({ mainMemory: memory })
     }
 }
 
@@ -367,10 +386,6 @@ class Register {
 
     constructor(value: number) {
         this.value = value;
-    }
-
-    toHex() {
-        return ('00000000' + this.value.toString(16)).slice(-8)
     }
 
     setValue(value: number) {
