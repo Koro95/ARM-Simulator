@@ -1,0 +1,102 @@
+\documentclass[a4paper, 11pt, onecolumn]{article}
+\usepackage[a4paper,left=2.7cm,right=2.7cm,top=3.2cm,bottom=3.2cm]{geometry}
+\usepackage[english,ngerman]{babel}
+\usepackage{graphicx}
+\usepackage{amsmath}
+\usepackage{subcaption}
+\usepackage[numbers]{natbib}
+\usepackage[hyphens]{url}
+\usepackage{hyperref}
+\usepackage{amsmath}
+\usepackage{listings}
+\usepackage{color}
+\newcommand{\var}[1]{{\ttfamily#1}}% variable
+% Keywords command
+\providecommand{\keywords}[1]
+{
+  \noindent \textbf{Schlüsselwörter } #1
+}
+
+\definecolor{mygray}{rgb}{0.88,0.88,0.88}
+\lstset{
+ basicstyle=\ttfamily\footnotesize,
+ backgroundcolor=\color{mygray},
+ frame=single
+}
+
+
+\begin{document}
+\renewcommand{\abstractname}{Kurzfassung}
+    \begin{center}
+
+        \includegraphics[width=0.33\textwidth]{data/uibk} 
+        
+		\LARGE
+        \textbf{ARM Simulator, Interpreter und\\Debugger als Webanwendung\\}
+        
+		\vspace{0.2cm}        
+            
+        \large
+        Leopold-Franzens-Universität Innsbruck\\
+        Institut für Informatik\\
+		Security and Privacy Lab
+		
+		\vspace{0.4cm}   
+		
+		\Large  
+        Dominik Zangerl\\
+		Betreuer: Alexander Schlögl  
+                
+        \vspace{0.4cm}
+        
+        \large    
+        Innsbruck, \today
+           
+    \end{center}
+    
+%\begin{abstract}
+%
+%Kurzfassung
+%
+%\keywords{Schlüsselwörter}
+%
+%\end{abstract}
+
+\section{Motivation}
+
+Das Ziel meiner Bachelorarbeit ist es eine Webanwendung zu entwickeln, mit der die ARMv5 Entwicklungsumgebung simuliert wird. ARMv5 \cite{arm:2005} wird im ersten Semester als Beispiel für eine Befehlssatzarchitektur unterrichtet. Studierende sollen ihre eigenen Programme in Assembler \cite{assembly} schreiben und diese dann auf einer ARMv5 Architektur ausführen. Diese Entwicklungsumgebung wird zurzeit mit verschiedenen Linux-Programmen simuliert. Die GNU Toolchain für die ARM Cortex-A Architektur \cite{gnutoolchain} wird für das Kompilieren und Linken der Assembler-Dateien verwendet. Das kompilierte ARM-Programm läuft dann nicht auf der Architektur des Hostrechners, sondern wird mit Hilfe des QEMU User-Space-Emulators \cite{qemu} ausgeführt. Dieser Prozess kann vereinfacht werden, indem man die Toolchain in einer virtuellen Maschine oder dem Windows Subsystem for Linux \cite{wsl} installiert und sich für die Befehlskette ein Skript schreibt.
+
+Das größere Problem bei dieser Toolchain ist die Fehlersuche und das Debugging des Programms. Den Fehler auf eine bestimmte Instruktion oder ein Registers zurückzuführen nimmt oft die größte Zeit in Anspruch. Der ARM-Emulator kann zusammen mit dem GNU Debugger \cite{gdb}  verwendet werden, welcher auch die Inhalte der Register anzeigen kann. Dies bedeutet jedoch häufig einen großen Zeitaufwand um alles aufzusetzen. Auch das Arbeiten mit Debuggern, besonders auf der Kommandozeile, könnte vielen noch nicht geläufig sein. 
+
+An dieser Stelle greift dieses Bachelorprojekt ein und versucht die ARMv5 Entwicklungsumgebung inklusive Debugging mit einer Webanwendung zu simulieren. Benutzer:innen schreiben den ARM-Code direkt in die Webanwendung, welcher dann auf einer simulierten CPU und simuliertem Hauptspeicher direkt im Browser ausgeführt wird. Die Inhalte der Register, des Stacks und Teile des Hauptspeichers werden dauerhaft angezeigt und helfen Benutzer:innen bei der Fehlerbehebung, da sie sofort sehen, an welcher Stelle ein ungewünschter Wert in ein Register geschrieben wird. Zusammen mit den Funktionen eines Debuggers, wie zeilenweise Abarbeitung des Codes oder setzen von Breakpoints, wird den Studierenden die zeitaufwändigste Arbeit abgenommen und sie können sich auf den wichtigen Teil konzentrieren, nämlich das Schreiben und Verstehen von ARM-Assembler Code.
+
+\section{Theorie}
+
+\subsection{ARMv5}
+
+\subsection{Parsing Expression Grammatik und tsPEG}
+
+\section{Implementation}
+
+\subsection{Implementierte Instruktionen}
+
+\subsubsection*{ADD}
+
+\subsubsection*{ADC}
+
+...
+
+\subsection{Codeausführung und Debugger}
+
+
+\subsection{Parser}
+
+
+\section{Evaluation}
+
+\section{Zusammenfassung und Ausblick}
+
+\bibliographystyle{plainnat}
+\bibliography{literatur}
+
+\end{document}

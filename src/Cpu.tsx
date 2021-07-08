@@ -16,6 +16,7 @@ type CpuState = {
     userInput: String;
     terminal: String;
     mainMemory: String;
+    testOp: number[];
 }
 
 class Cpu extends React.Component<any, CpuState> {
@@ -31,7 +32,7 @@ class Cpu extends React.Component<any, CpuState> {
         this.state = {
             registers: initializedRegisters, statusRegister: new StatusRegister(),
             codeExecutionEngine: new CodeExecutionEngine(this), userInput: ".arm\n.text\n.global _start\n_start:\n\tADD r1, r2, r3",
-            terminal: welcomeMessage, mainMemory: ""
+            terminal: welcomeMessage, mainMemory: "", testOp : [0,0,0,0]
         };
     }
 
@@ -75,6 +76,27 @@ class Cpu extends React.Component<any, CpuState> {
         this.setState({ registers: newRegisters });
     }
 
+    testOpChange = (index: number, e: React.ChangeEvent<HTMLTextAreaElement | HTMLInputElement>) => {
+        console.log(e.target.value)
+        let newValue = parseInt(e.currentTarget.value);
+        if (newValue == null || newValue > 15 ) {
+            let message = "\n<" + new Date().toLocaleTimeString() + "> Register Value should be < 15 and a number";
+            let newTerminal = this.state.terminal + message;
+            this.setState({ terminal: newTerminal })
+            return;
+        }
+        else if (isNaN(newValue)) {
+            let newTestOp = [...this.state.testOp];
+            newTestOp[index] = 0;
+            this.setState({ testOp: newTestOp });
+            return;
+        }
+
+        let newTestOp = [...this.state.testOp];
+        newTestOp[index] = newValue;
+        this.setState({ testOp: newTestOp });
+    }
+
     toHex(x: number): String {
         return ('00000000' + x.toString(16)).slice(-8);
     }
@@ -103,30 +125,36 @@ class Cpu extends React.Component<any, CpuState> {
                     </Box>
                     <Box height="29.75%" mb="0.5%" className="App-debugger">
                         <div>N: {this.state.statusRegister.getN()}, Z: {this.state.statusRegister.getZ()}, C: {this.state.statusRegister.getC()}, V: {this.state.statusRegister.getV()}</div>
+                        
+                        <div>Op1: <InputBase value={this.state.testOp[0]} onChange={e => this.testOpChange(0, e)} /> </div>
+                        <div>Op2: <InputBase value={this.state.testOp[1]} onChange={e => this.testOpChange(1, e)} /> </div>
+                        <div>Op3: <InputBase value={this.state.testOp[2]} onChange={e => this.testOpChange(2, e)} /> </div>
+                        <div>Op4: <InputBase value={this.state.testOp[3]} onChange={e => this.testOpChange(3, e)} /> </div>                      
+                        
                         <Button onClick={() => this.state.codeExecutionEngine.executeNextInstruction()} variant="outlined" color="primary">NextInst</Button>
                         <Button onClick={() => this.state.codeExecutionEngine.compile()} variant="outlined" color="primary">Compile Memory</Button>
                     </Box>
                     <Box height="19.75%" className="App-options">
                         <div>Options</div>
                         <div>
-                            <Button onClick={() => this.state.codeExecutionEngine.addInstruction("AND", "log", 0, 1, 2, undefined, undefined)} variant="outlined" color="primary">AND</Button>
-                            <Button onClick={() => this.state.codeExecutionEngine.addInstruction("ORR", "log", 0, 1, 2, undefined, undefined)} variant="outlined" color="primary">ORR</Button>
-                            <Button onClick={() => this.state.codeExecutionEngine.addInstruction("EOR", "log", 0, 1, 2, undefined, undefined)} variant="outlined" color="primary">EOR</Button>
-                            <Button onClick={() => this.state.codeExecutionEngine.addInstruction("BIC", "log", 0, 1, 2, undefined, undefined)} variant="outlined" color="primary">BIC</Button>
-                            <Button onClick={() => this.state.codeExecutionEngine.addInstruction("CMP", "log", 0, 1, undefined, undefined, undefined)} variant="outlined" color="primary">CMP</Button>
-                            <Button onClick={() => this.state.codeExecutionEngine.addInstruction("CMN", "log", 0, 1, undefined, undefined, undefined)} variant="outlined" color="primary">CMN</Button>
-                            <Button onClick={() => this.state.codeExecutionEngine.addInstruction("TST", "log", 0, 1, undefined, undefined, undefined)} variant="outlined" color="primary">TST</Button>
-                            <Button onClick={() => this.state.codeExecutionEngine.addInstruction("TEQ", "log", 0, 1, undefined, undefined, undefined)} variant="outlined" color="primary">TEQ</Button>
+                            <Button onClick={() => this.state.codeExecutionEngine.addInstruction("AND", "log", this.state.testOp[0], this.state.testOp[1], this.state.testOp[2], undefined, undefined)} variant="outlined" color="primary">AND</Button>
+                            <Button onClick={() => this.state.codeExecutionEngine.addInstruction("ORR", "log", this.state.testOp[0], this.state.testOp[1], this.state.testOp[2], undefined, undefined)} variant="outlined" color="primary">ORR</Button>
+                            <Button onClick={() => this.state.codeExecutionEngine.addInstruction("EOR", "log", this.state.testOp[0], this.state.testOp[1], this.state.testOp[2], undefined, undefined)} variant="outlined" color="primary">EOR</Button>
+                            <Button onClick={() => this.state.codeExecutionEngine.addInstruction("BIC", "log", this.state.testOp[0], this.state.testOp[1], this.state.testOp[2], undefined, undefined)} variant="outlined" color="primary">BIC</Button>
+                            <Button onClick={() => this.state.codeExecutionEngine.addInstruction("CMP", "log", this.state.testOp[0], this.state.testOp[1], undefined, undefined, undefined)} variant="outlined" color="primary">CMP</Button>
+                            <Button onClick={() => this.state.codeExecutionEngine.addInstruction("CMN", "log", this.state.testOp[0], this.state.testOp[1], undefined, undefined, undefined)} variant="outlined" color="primary">CMN</Button>
+                            <Button onClick={() => this.state.codeExecutionEngine.addInstruction("TST", "log", this.state.testOp[0], this.state.testOp[1], undefined, undefined, undefined)} variant="outlined" color="primary">TST</Button>
+                            <Button onClick={() => this.state.codeExecutionEngine.addInstruction("TEQ", "log", this.state.testOp[0], this.state.testOp[1], undefined, undefined, undefined)} variant="outlined" color="primary">TEQ</Button>
                         </div>
                         <div>
-                            <Button onClick={() => this.state.codeExecutionEngine.addInstruction("ADD", "art", 0, 1, 2, undefined, undefined)} variant="outlined" color="primary">ADD</Button>
-                            <Button onClick={() => this.state.codeExecutionEngine.addInstruction("ADC", "art", 0, 1, 2, undefined, undefined)} variant="outlined" color="primary">ADC</Button>
-                            <Button onClick={() => this.state.codeExecutionEngine.addInstruction("SUB", "art", 0, 1, 2, undefined, undefined)} variant="outlined" color="primary">SUB</Button>
-                            <Button onClick={() => this.state.codeExecutionEngine.addInstruction("SBC", "art", 0, 1, 2, undefined, undefined)} variant="outlined" color="primary">SBC</Button>
-                            <Button onClick={() => this.state.codeExecutionEngine.addInstruction("RSB", "art", 0, 1, 2, undefined, undefined)} variant="outlined" color="primary">RSB</Button>
-                            <Button onClick={() => this.state.codeExecutionEngine.addInstruction("RSC", "art", 0, 1, 2, undefined, undefined)} variant="outlined" color="primary">RSC</Button>
-                            <Button onClick={() => this.state.codeExecutionEngine.addInstruction("MUL", "art", 0, 1, 2, undefined, undefined)} variant="outlined" color="primary">MUL</Button>
-                            <Button onClick={() => this.state.codeExecutionEngine.addInstruction("MLA", "art", 0, 1, 2, 3, undefined)} variant="outlined" color="primary">MLA</Button>
+                            <Button onClick={() => this.state.codeExecutionEngine.addInstruction("ADD", "art", this.state.testOp[0], this.state.testOp[1], this.state.testOp[2], undefined, undefined)} variant="outlined" color="primary">ADD</Button>
+                            <Button onClick={() => this.state.codeExecutionEngine.addInstruction("ADC", "art", this.state.testOp[0], this.state.testOp[1], this.state.testOp[2], undefined, undefined)} variant="outlined" color="primary">ADC</Button>
+                            <Button onClick={() => this.state.codeExecutionEngine.addInstruction("SUB", "art", this.state.testOp[0], this.state.testOp[1], this.state.testOp[2], undefined, undefined)} variant="outlined" color="primary">SUB</Button>
+                            <Button onClick={() => this.state.codeExecutionEngine.addInstruction("SBC", "art", this.state.testOp[0], this.state.testOp[1], this.state.testOp[2], undefined, undefined)} variant="outlined" color="primary">SBC</Button>
+                            <Button onClick={() => this.state.codeExecutionEngine.addInstruction("RSB", "art", this.state.testOp[0], this.state.testOp[1], this.state.testOp[2], undefined, undefined)} variant="outlined" color="primary">RSB</Button>
+                            <Button onClick={() => this.state.codeExecutionEngine.addInstruction("RSC", "art", this.state.testOp[0], this.state.testOp[1], this.state.testOp[2], undefined, undefined)} variant="outlined" color="primary">RSC</Button>
+                            <Button onClick={() => this.state.codeExecutionEngine.addInstruction("MUL", "art", this.state.testOp[0], this.state.testOp[1], this.state.testOp[2], undefined, undefined)} variant="outlined" color="primary">MUL</Button>
+                            <Button onClick={() => this.state.codeExecutionEngine.addInstruction("MLA", "art", this.state.testOp[0], this.state.testOp[1], this.state.testOp[2], this.state.testOp[3], undefined)} variant="outlined" color="primary">MLA</Button>
                         </div>
                     </Box>
                 </Box>
