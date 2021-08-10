@@ -7,8 +7,9 @@ import 'react-tabs/style/react-tabs.css';
 
 import { CodeExecutionEngine } from "./CodeExecutionEngine";
 import { StatusRegister } from "./StatusRegister";
+import { MainMemory } from "./MainMemory";
 
-const parse = require('./parser/parser').parse;
+const parse = require('../parser/parser').parse;
 
 export { Cpu };
 
@@ -18,14 +19,14 @@ type CpuState = {
     codeExecutionEngine: CodeExecutionEngine;
     userInput: String;
     terminal: String;
-    mainMemory: String;
+    mainMemory: MainMemory;
     testOp: number[];
 }
 
 class Cpu extends React.Component<any, CpuState> {
     constructor(props: any) {
         super(props)
-        let defaultValue = 0x00000001;
+        let defaultValue = 0x00000000;
         let initializedRegisters = []
         let welcomeMessage = "<" + new Date().toLocaleTimeString() + "> Welcome";
 
@@ -35,7 +36,7 @@ class Cpu extends React.Component<any, CpuState> {
         this.state = {
             registers: initializedRegisters, statusRegister: new StatusRegister(),
             codeExecutionEngine: new CodeExecutionEngine(this), userInput: ".arm\n.text\n.global _start\n_start:\n\tADD r1, r2, r3",
-            terminal: welcomeMessage, mainMemory: "", testOp : [0,1,2,3]
+            terminal: welcomeMessage, mainMemory: new MainMemory(this), testOp : [0,1,2,3]
         };
     }
 
@@ -135,29 +136,29 @@ class Cpu extends React.Component<any, CpuState> {
                         <div>Op4: <InputBase value={this.state.testOp[3]} onChange={e => this.testOpChange(3, e)} /> </div>                      
                         
                         <Button onClick={() => this.state.codeExecutionEngine.executeNextInstruction()} variant="outlined" color="primary">NextInst</Button>
-                        <Button onClick={() => this.state.codeExecutionEngine.compile()} variant="outlined" color="primary">Compile Memory</Button>
+                        <Button onClick={() => this.state.mainMemory.compile()} variant="outlined" color="primary">Compile Memory</Button>
                     </Box>
                     <Box height="19.75%" className="App-options">
                         <div>Options</div>
                         <div>
-                            <Button onClick={() => this.state.codeExecutionEngine.addInstruction("AND", "log", this.state.testOp[0], this.state.testOp[1], this.state.testOp[2], undefined, undefined)} variant="outlined" color="primary">AND</Button>
-                            <Button onClick={() => this.state.codeExecutionEngine.addInstruction("ORR", "log", this.state.testOp[0], this.state.testOp[1], this.state.testOp[2], undefined, undefined)} variant="outlined" color="primary">ORR</Button>
-                            <Button onClick={() => this.state.codeExecutionEngine.addInstruction("EOR", "log", this.state.testOp[0], this.state.testOp[1], this.state.testOp[2], undefined, undefined)} variant="outlined" color="primary">EOR</Button>
-                            <Button onClick={() => this.state.codeExecutionEngine.addInstruction("BIC", "log", this.state.testOp[0], this.state.testOp[1], this.state.testOp[2], undefined, undefined)} variant="outlined" color="primary">BIC</Button>
-                            <Button onClick={() => this.state.codeExecutionEngine.addInstruction("CMP", "log", this.state.testOp[0], this.state.testOp[1], undefined, undefined, undefined)} variant="outlined" color="primary">CMP</Button>
-                            <Button onClick={() => this.state.codeExecutionEngine.addInstruction("CMN", "log", this.state.testOp[0], this.state.testOp[1], undefined, undefined, undefined)} variant="outlined" color="primary">CMN</Button>
-                            <Button onClick={() => this.state.codeExecutionEngine.addInstruction("TST", "log", this.state.testOp[0], this.state.testOp[1], undefined, undefined, undefined)} variant="outlined" color="primary">TST</Button>
-                            <Button onClick={() => this.state.codeExecutionEngine.addInstruction("TEQ", "log", this.state.testOp[0], this.state.testOp[1], undefined, undefined, undefined)} variant="outlined" color="primary">TEQ</Button>
+                            <Button onClick={() => this.state.mainMemory.addInstruction("AND", "log", this.state.testOp[0], this.state.testOp[1], this.state.testOp[2], undefined, undefined)} variant="outlined" color="primary">AND</Button>
+                            <Button onClick={() => this.state.mainMemory.addInstruction("ORR", "log", this.state.testOp[0], this.state.testOp[1], this.state.testOp[2], undefined, undefined)} variant="outlined" color="primary">ORR</Button>
+                            <Button onClick={() => this.state.mainMemory.addInstruction("EOR", "log", this.state.testOp[0], this.state.testOp[1], this.state.testOp[2], undefined, undefined)} variant="outlined" color="primary">EOR</Button>
+                            <Button onClick={() => this.state.mainMemory.addInstruction("BIC", "log", this.state.testOp[0], this.state.testOp[1], this.state.testOp[2], undefined, undefined)} variant="outlined" color="primary">BIC</Button>
+                            <Button onClick={() => this.state.mainMemory.addInstruction("CMP", "log", this.state.testOp[0], this.state.testOp[1], undefined, undefined, undefined)} variant="outlined" color="primary">CMP</Button>
+                            <Button onClick={() => this.state.mainMemory.addInstruction("CMN", "log", this.state.testOp[0], this.state.testOp[1], undefined, undefined, undefined)} variant="outlined" color="primary">CMN</Button>
+                            <Button onClick={() => this.state.mainMemory.addInstruction("TST", "log", this.state.testOp[0], this.state.testOp[1], undefined, undefined, undefined)} variant="outlined" color="primary">TST</Button>
+                            <Button onClick={() => this.state.mainMemory.addInstruction("TEQ", "log", this.state.testOp[0], this.state.testOp[1], undefined, undefined, undefined)} variant="outlined" color="primary">TEQ</Button>
                         </div>
                         <div>
-                            <Button onClick={() => this.state.codeExecutionEngine.addInstruction("ADD", "art", this.state.testOp[0], this.state.testOp[1], this.state.testOp[2], undefined, undefined)} variant="outlined" color="primary">ADD</Button>
-                            <Button onClick={() => this.state.codeExecutionEngine.addInstruction("ADC", "art", this.state.testOp[0], this.state.testOp[1], this.state.testOp[2], undefined, undefined)} variant="outlined" color="primary">ADC</Button>
-                            <Button onClick={() => this.state.codeExecutionEngine.addInstruction("SUB", "art", this.state.testOp[0], this.state.testOp[1], this.state.testOp[2], undefined, undefined)} variant="outlined" color="primary">SUB</Button>
-                            <Button onClick={() => this.state.codeExecutionEngine.addInstruction("SBC", "art", this.state.testOp[0], this.state.testOp[1], this.state.testOp[2], undefined, undefined)} variant="outlined" color="primary">SBC</Button>
-                            <Button onClick={() => this.state.codeExecutionEngine.addInstruction("RSB", "art", this.state.testOp[0], this.state.testOp[1], this.state.testOp[2], undefined, undefined)} variant="outlined" color="primary">RSB</Button>
-                            <Button onClick={() => this.state.codeExecutionEngine.addInstruction("RSC", "art", this.state.testOp[0], this.state.testOp[1], this.state.testOp[2], undefined, undefined)} variant="outlined" color="primary">RSC</Button>
-                            <Button onClick={() => this.state.codeExecutionEngine.addInstruction("MUL", "art", this.state.testOp[0], this.state.testOp[1], this.state.testOp[2], undefined, undefined)} variant="outlined" color="primary">MUL</Button>
-                            <Button onClick={() => this.state.codeExecutionEngine.addInstruction("MLA", "art", this.state.testOp[0], this.state.testOp[1], this.state.testOp[2], this.state.testOp[3], undefined)} variant="outlined" color="primary">MLA</Button>
+                            <Button onClick={() => this.state.mainMemory.addInstruction("ADD", "art", this.state.testOp[0], this.state.testOp[1], this.state.testOp[2], undefined, undefined)} variant="outlined" color="primary">ADD</Button>
+                            <Button onClick={() => this.state.mainMemory.addInstruction("ADC", "art", this.state.testOp[0], this.state.testOp[1], this.state.testOp[2], undefined, undefined)} variant="outlined" color="primary">ADC</Button>
+                            <Button onClick={() => this.state.mainMemory.addInstruction("SUB", "art", this.state.testOp[0], this.state.testOp[1], this.state.testOp[2], undefined, undefined)} variant="outlined" color="primary">SUB</Button>
+                            <Button onClick={() => this.state.mainMemory.addInstruction("SBC", "art", this.state.testOp[0], this.state.testOp[1], this.state.testOp[2], undefined, undefined)} variant="outlined" color="primary">SBC</Button>
+                            <Button onClick={() => this.state.mainMemory.addInstruction("RSB", "art", this.state.testOp[0], this.state.testOp[1], this.state.testOp[2], undefined, undefined)} variant="outlined" color="primary">RSB</Button>
+                            <Button onClick={() => this.state.mainMemory.addInstruction("RSC", "art", this.state.testOp[0], this.state.testOp[1], this.state.testOp[2], undefined, undefined)} variant="outlined" color="primary">RSC</Button>
+                            <Button onClick={() => this.state.mainMemory.addInstruction("MUL", "art", this.state.testOp[0], this.state.testOp[1], this.state.testOp[2], undefined, undefined)} variant="outlined" color="primary">MUL</Button>
+                            <Button onClick={() => this.state.mainMemory.addInstruction("MLA", "art", this.state.testOp[0], this.state.testOp[1], this.state.testOp[2], this.state.testOp[3], undefined)} variant="outlined" color="primary">MLA</Button>
                         </div>
                     </Box>
                 </Box>
@@ -173,10 +174,9 @@ class Cpu extends React.Component<any, CpuState> {
                                 <textarea className="App-userinput" value={this.state.userInput.toString()} onChange={e => this.userInputChange(e)} onKeyDown={e => this.allowTabKey(e)} />
                             </TabPanel>
                             <TabPanel height="90%">
-                                <textarea className="App-userinput" value={this.state.mainMemory.toString()} disabled />
+                                <textarea className="App-userinput" value={this.state.mainMemory.memory} disabled />
                             </TabPanel>
                         </Tabs>
-
                     </Box>
                     <Box height="19.5%">
                         <textarea className="App-terminal" value={this.state.terminal.toString()} disabled />

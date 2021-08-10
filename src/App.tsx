@@ -1,5 +1,5 @@
 import './App.css';
-import { Cpu } from './Cpu'
+import { Cpu } from './simulator/Cpu'
 
 //import React from 'react';
 
