@@ -1,5 +1,6 @@
 import React from "react";
 import InputBase from '@material-ui/core/InputBase';
+import { InputBaseComponentProps } from "@material-ui/core";
 import Box from '@material-ui/core/Box';
 import Button from '@material-ui/core/Button';
 import { Tab, Tabs, TabList, TabPanel } from 'react-tabs';
@@ -106,28 +107,42 @@ class Cpu extends React.Component<any, CpuState> {
     }
 
     render() {
+        const style = {style: {padding: 0, 'padding-left': 10, width: '90px'}} as InputBaseComponentProps;
+
         return (
             <div className="App-body">
-                <Box width="19.75%" mr="0.5%" height="100%">
-                    <Box height="50%" mb="0.5%" className="App-cpustate">
-                        <div> <div className="Reg-names">r0</div> <InputBase margin='none' value={this.toHex(this.state.registers[0])} onChange={e => this.regValueChange(0, e)} /> </div>
-                        <div> <div className="Reg-names">r1</div> <InputBase margin='none' value={this.toHex(this.state.registers[1])} onChange={e => this.regValueChange(1, e)} /> </div>
-                        <div> <div className="Reg-names">r2</div> <InputBase margin='none' value={this.toHex(this.state.registers[2])} onChange={e => this.regValueChange(2, e)} /> </div>
-                        <div> <div className="Reg-names">r3</div> <InputBase margin='none' value={this.toHex(this.state.registers[3])} onChange={e => this.regValueChange(3, e)} /> </div>
-                        <div> <div className="Reg-names">r4</div> <InputBase margin='none' value={this.toHex(this.state.registers[4])} onChange={e => this.regValueChange(4, e)} /> </div>
-                        <div> <div className="Reg-names">r5</div> <InputBase margin='none' value={this.toHex(this.state.registers[5])} onChange={e => this.regValueChange(5, e)} /> </div>
-                        <div> <div className="Reg-names">r6</div> <InputBase margin='none' value={this.toHex(this.state.registers[6])} onChange={e => this.regValueChange(6, e)} /> </div>
-                        <div> <div className="Reg-names">r7</div> <InputBase margin='none' value={this.toHex(this.state.registers[7])} onChange={e => this.regValueChange(7, e)} /> </div>
-                        <div> <div className="Reg-names">r8</div> <InputBase margin='none' value={this.toHex(this.state.registers[8])} onChange={e => this.regValueChange(8, e)} /> </div>
-                        <div> <div className="Reg-names">r9</div> <InputBase margin='none' value={this.toHex(this.state.registers[9])} onChange={e => this.regValueChange(9, e)} /> </div>
-                        <div> <div className="Reg-names">r10</div> <InputBase margin='none' value={this.toHex(this.state.registers[10])} onChange={e => this.regValueChange(10, e)} /> </div>
-                        <div> <div className="Reg-names">r11</div> <InputBase margin='none' value={this.toHex(this.state.registers[11])} onChange={e => this.regValueChange(11, e)} /> </div>
-                        <div> <div className="Reg-names">r12</div> <InputBase margin='none' value={this.toHex(this.state.registers[12])} onChange={e => this.regValueChange(12, e)} /> </div>
-                        <div> <div className="Reg-names">sp</div> <InputBase margin='none' value={this.toHex(this.state.registers[13])} onChange={e => this.regValueChange(13, e)} /> </div>
-                        <div> <div className="Reg-names">lr</div> <InputBase margin='none' value={this.toHex(this.state.registers[14])} onChange={e => this.regValueChange(14, e)} /> </div>
-                        <div> <div className="Reg-names">pc</div> <InputBase margin='none' value={this.toHex(this.state.registers[15])} onChange={e => this.regValueChange(15, e)} /> </div>
+                <Box width="19.75%" mr="0.5%" height="100%" minWidth="150px">
+                    <Box height="54%" mb="0.5%" className="App-cpustate">
+                        <Tabs>
+                            <TabList className="tab-list-reg">
+                                <Tab>Register</Tab>
+                                <Tab>Stack</Tab>
+                            </TabList>
+
+                            <TabPanel>
+                                <div className="Reg"> <div className="Reg-names">r0</div><InputBase inputProps={style} value={this.toHex(this.state.registers[0])} onChange={e => this.regValueChange(0, e)} /> </div>
+                                <div className="Reg"> <div className="Reg-names">r1</div><InputBase inputProps={style} value={this.toHex(this.state.registers[1])} onChange={e => this.regValueChange(1, e)} /> </div>
+                                <div className="Reg"> <div className="Reg-names">r2</div><InputBase inputProps={style} value={this.toHex(this.state.registers[2])} onChange={e => this.regValueChange(2, e)} /> </div>
+                                <div className="Reg"> <div className="Reg-names">r3</div><InputBase inputProps={style} value={this.toHex(this.state.registers[3])} onChange={e => this.regValueChange(3, e)} /> </div>
+                                <div className="Reg"> <div className="Reg-names">r4</div><InputBase inputProps={style} value={this.toHex(this.state.registers[4])} onChange={e => this.regValueChange(4, e)} /> </div>
+                                <div className="Reg"> <div className="Reg-names">r5</div><InputBase inputProps={style} value={this.toHex(this.state.registers[5])} onChange={e => this.regValueChange(5, e)} /> </div>
+                                <div className="Reg"> <div className="Reg-names">r6</div><InputBase inputProps={style} value={this.toHex(this.state.registers[6])} onChange={e => this.regValueChange(6, e)} /> </div>
+                                <div className="Reg"> <div className="Reg-names">r7</div><InputBase inputProps={style} value={this.toHex(this.state.registers[7])} onChange={e => this.regValueChange(7, e)} /> </div>
+                                <div className="Reg"> <div className="Reg-names">r8</div><InputBase inputProps={style} value={this.toHex(this.state.registers[8])} onChange={e => this.regValueChange(8, e)} /> </div>
+                                <div className="Reg"> <div className="Reg-names">r9</div><InputBase inputProps={style} value={this.toHex(this.state.registers[9])} onChange={e => this.regValueChange(9, e)} /> </div>
+                                <div className="Reg"> <div className="Reg-names">r10</div><InputBase inputProps={style} value={this.toHex(this.state.registers[10])} onChange={e => this.regValueChange(10, e)} /> </div>
+                                <div className="Reg"> <div className="Reg-names">r11</div><InputBase inputProps={style} value={this.toHex(this.state.registers[11])} onChange={e => this.regValueChange(11, e)} /> </div>
+                                <div className="Reg"> <div className="Reg-names">r12</div><InputBase inputProps={style} value={this.toHex(this.state.registers[12])} onChange={e => this.regValueChange(12, e)} /> </div>
+                                <div className="Reg"> <div className="Reg-names">sp</div><InputBase inputProps={style} value={this.toHex(this.state.registers[13])} onChange={e => this.regValueChange(13, e)} /> </div>
+                                <div className="Reg"> <div className="Reg-names">lr</div><InputBase inputProps={style} value={this.toHex(this.state.registers[14])} onChange={e => this.regValueChange(14, e)} /> </div>
+                                <div className="Reg"> <div className="Reg-names">pc</div><InputBase inputProps={style} value={this.toHex(this.state.registers[15])} onChange={e => this.regValueChange(15, e)} /> </div>
+                            </TabPanel>
+                            <TabPanel>
+                                hallo
+                            </TabPanel>
+                        </Tabs>
                     </Box>
-                    <Box height="29.75%" mb="0.5%" className="App-debugger">
+                    <Box height="25.25%" mb="0.5%" className="App-debugger">
                         <div>N: {this.state.statusRegister.getN()}, Z: {this.state.statusRegister.getZ()}, C: {this.state.statusRegister.getC()}, V: {this.state.statusRegister.getV()}</div>
                         
                         <div>Op1: <InputBase value={this.state.testOp[0]} onChange={e => this.testOpChange(0, e)} /> </div>
@@ -164,16 +179,16 @@ class Cpu extends React.Component<any, CpuState> {
                 </Box>
                 <Box width="79.75%" height="100%">
                     <Box height="79.5%" mb="0.5%">
-                        <Tabs>
-                            <TabList height="10%">
-                                <Tab>Code</Tab>
+                        <Tabs height="100%">
+                            <TabList className="tab-list-input">
+                                <Tab height="5%">Code</Tab>
                                 <Tab>Memory</Tab>
                             </TabList>
 
-                            <TabPanel height="90%">
+                            <TabPanel>
                                 <textarea className="App-userinput" value={this.state.userInput.toString()} onChange={e => this.userInputChange(e)} onKeyDown={e => this.allowTabKey(e)} />
                             </TabPanel>
-                            <TabPanel height="90%">
+                            <TabPanel>
                                 <textarea className="App-userinput" value={this.state.mainMemory.memory} disabled />
                             </TabPanel>
                         </Tabs>

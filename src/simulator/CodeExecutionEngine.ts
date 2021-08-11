@@ -176,9 +176,10 @@ class CodeExecutionEngine {
                     carry = (x >>> (shiftAmount - 1)) & 1;
                     break;
             }
-            // TODO
-            // this.cpu.state.statusRegister.setC(carry === 0 ? 0 : 1);
-            // this.updateStatusRegisters = true;
+            
+            if (typeof this.currentInstruction !== 'undefined' && this.currentInstruction.updateStatusRegisters) {
+                this.cpu.state.statusRegister.setC(carry === 0 ? 0 : 1);
+            }
         }
 
         return y;
