@@ -1,4 +1,4 @@
-export { Instruction }
+export { Instruction, RegisterOperand, ImmediateOperand, ShiftOperand}
 
 class Instruction {
     instruction: string;
@@ -24,3 +24,51 @@ class Instruction {
         this.result = undefined;
     }
 }
+
+class RegisterOperand {
+    index: number;
+
+    constructor(index: number) {
+        this.index = index;
+    }
+
+    getIndex() {
+        return this.index;
+    }
+}
+
+class ImmediateOperand {
+    value: number;
+
+    constructor(value: number) {
+        this.value = value;
+    }
+
+    getValue() {
+        return this.value;
+    }
+}
+
+class ShiftOperand {
+    operand: RegisterOperand | ImmediateOperand;
+    type: string;
+    amount: number;
+
+    constructor(operand: RegisterOperand | ImmediateOperand, type: string, amount: number) {
+        this.operand = operand;
+        this.type = type;
+        this.amount = amount;
+    }
+
+    getOperand() {
+        return this.operand;
+    }
+
+    getType() {
+        return this.type;
+    }
+
+    getAmount() {
+        return this.amount;
+    }
+} 

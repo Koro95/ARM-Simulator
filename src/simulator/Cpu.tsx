@@ -87,6 +87,22 @@ class Cpu extends React.Component<any, CpuState> {
         this.setState({ testOp: newTestOp });
     }
 
+    checkInvalidOperands(operand: string): boolean {
+        let operandType = operand.substr(0,1);
+        let operandValue = parseInt(operand.substr(1));
+
+        if (operandType === "r" && operandValue >= 0 && operandValue < 16) {
+            return false;
+        }
+
+        return true;
+    }
+
+    checkInvalidShift(shift: string): boolean {
+
+        return true;
+    }
+
     newTerminalMessage(message: string) {
         let newMessage = "\n<" + new Date().toLocaleTimeString() + "> " + message;
         let newTerminal = this.state.terminal + newMessage;

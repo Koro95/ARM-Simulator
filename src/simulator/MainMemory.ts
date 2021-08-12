@@ -1,3 +1,4 @@
+import { getTokenSourceMapRange } from "typescript";
 import { Cpu } from "./Cpu";
 import { Instruction } from "./Instruction";
 
@@ -16,6 +17,22 @@ class MainMemory {
 
     addInstruction(instruction: string, type: string, op1: string | undefined, op2: string | undefined, op3: string | undefined, op4: string | undefined,
         shift: string | undefined) {
+        
+        let operands = [op1, op2, op3, op4];
+        let checkInvalidOperands = this.cpu.checkInvalidOperands;
+        let checkInvalidShift = this.cpu.checkInvalidShift;
+        let newTerminalMessage = this.cpu.newTerminalMessage;
+
+        operands.forEach(function(op){
+            if (typeof op !== 'undefined' && checkInvalidOperands(op)) {
+                newTerminalMessage(op + " is not a valid operand!")
+            }
+        });
+
+        if (typeof shift !== 'undefined' && checkInvalidShift(shift)) {
+            newTerminalMessage(shift + " is not a valid shift amount!")
+        }        
+        
         let newInstruction = new Instruction(instruction, type, op1, op2, op3, op4, shift);
         this.instructions.push(newInstruction);
     }

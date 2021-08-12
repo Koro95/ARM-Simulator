@@ -186,14 +186,20 @@ class CodeExecutionEngine {
         let operandType = operand.substr(0,1);
         let operandValue = parseInt(operand.substr(1));
 
+        // case for register r0-r15
         if (operandType === "r" && operandValue >= 0 && operandValue < 16) {
             return this.cpu.state.registers[operandValue];
         }
-        else if (operandType === "#") {
-            return operandValue;
+        
+        // case for specially named registers
+        switch(operand) {
+            case "sp": return this.cpu.state.registers[13];
+            case "lr": return this.cpu.state.registers[14];
+            case "pc": return this.cpu.state.registers[15];
         }
 
-        return 0;
+        // case for immediate values
+        return operandValue;
     }
 
     setTo32Bit(x: number): number {
