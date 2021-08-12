@@ -19,9 +19,7 @@ class CodeExecutionEngine {
             this.executeInstruction();
         }
         else {
-            let message = "\n<" + new Date().toLocaleTimeString() + "> Invalid Memory Adress!";
-            let newTerminal = this.cpu.state.terminal + message;
-            this.cpu.setState({ terminal: newTerminal })
+            this.cpu.newTerminalMessage("Invalid Memory Adress!")
         }
     }
 
@@ -33,9 +31,9 @@ class CodeExecutionEngine {
             switch (inst.type) {
                 case "art":
                     if (typeof inst.op2 !== 'undefined' && typeof inst.op3 !== 'undefined') {
-                        let a = newRegisters[inst.op2];
-                        let b = this.barrelShifter(inst, newRegisters[inst.op3]);
-                        let x = (typeof inst.op4 !== 'undefined') ? newRegisters[inst.op4] : inst.op4;
+                        let a = this.getOperandValue(inst.op2);
+                        let b = this.barrelShifter(inst, this.getOperandValue(inst.op3));
+                        let x = (typeof inst.op4 !== 'undefined') ? this.getOperandValue(inst.op4) : inst.op4;
 
                         inst.result = this.arithmetic(inst, a, b, x);
                     }
@@ -44,15 +42,15 @@ class CodeExecutionEngine {
                     if (typeof inst.op1 !== 'undefined' && typeof inst.op2 !== 'undefined') {
                         // AND, ORR, EOR, BIC have 3 operands and need result to update
                         if (typeof inst.op3 !== 'undefined') {
-                            let a = newRegisters[inst.op2];
-                            let b = this.barrelShifter(inst, newRegisters[inst.op3]);
+                            let a = this.getOperandValue(inst.op2);
+                            let b = this.barrelShifter(inst, this.getOperandValue(inst.op3));
 
                             inst.result = this.logical(inst, a, b);
                         }
                         // CMP, CMN, TST, TEQ have 2 operands and don't need the result
                         else {
-                            let a = newRegisters[inst.op1];
-                            let b = this.barrelShifter(inst, newRegisters[inst.op2]);
+                            let a =this.getOperandValue(inst.op1);
+                            let b = this.barrelShifter(inst, this.getOperandValue(inst.op2));
 
                             this.logical(inst, a, b);
                         }
@@ -60,7 +58,7 @@ class CodeExecutionEngine {
                     break;
                 case "cpj":
                     if (typeof inst.op2 !== 'undefined') {
-                        let b = this.barrelShifter(inst, newRegisters[inst.op2]);
+                        let b = this.barrelShifter(inst, this.getOperandValue(inst.op2));
 
                         inst.result = this.copyShiftJump(inst, b);
                     }
@@ -69,7 +67,8 @@ class CodeExecutionEngine {
 
             // update registers
             if (typeof inst.result !== 'undefined' && typeof inst.op1 !== 'undefined') {
-                newRegisters[inst.op1] = this.setTo32Bit(inst.result);
+                let targetRegister = this.getOperandValue(inst.op1);
+                newRegisters[targetRegister] = this.setTo32Bit(inst.result);
                 newRegisters[15]+=4;
                 this.cpu.setState({ registers: newRegisters });
             }
@@ -78,9 +77,7 @@ class CodeExecutionEngine {
             }
         }
         else {
-            let message = "\n<" + new Date().toLocaleTimeString() + "> Instructions finished!";
-            let newTerminal = this.cpu.state.terminal + message;
-            this.cpu.setState({ terminal: newTerminal })
+            this.cpu.newTerminalMessage("Instructions finished!")
         }
     }
 
@@ -183,6 +180,20 @@ class CodeExecutionEngine {
         }
 
         return y;
+    }
+
+    getOperandValue(operand: string): number {
+        let operandType = operand.substr(0,1);
+        let operandValue = parseInt(operand.substr(1));
+
+        if (operandType === "r" && operandValue >= 0 && operandValue < 16) {
+            return this.cpu.state.registers[operandValue];
+        }
+        else if (operandType === "#") {
+            return operandValue;
+        }
+
+        return 0;
     }
 
     setTo32Bit(x: number): number {

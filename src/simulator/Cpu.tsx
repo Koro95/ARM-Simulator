@@ -21,7 +21,7 @@ type CpuState = {
     userInput: String;
     terminal: String;
     mainMemory: MainMemory;
-    testOp: number[];
+    testOp: string[];
 }
 
 class Cpu extends React.Component<any, CpuState> {
@@ -37,7 +37,7 @@ class Cpu extends React.Component<any, CpuState> {
         this.state = {
             registers: initializedRegisters, statusRegister: new StatusRegister(),
             codeExecutionEngine: new CodeExecutionEngine(this), userInput: ".arm\n.text\n.global _start\n_start:\n\tADD r1, r2, r3",
-            terminal: welcomeMessage, mainMemory: new MainMemory(this), testOp : [0,1,2,3]
+            terminal: welcomeMessage, mainMemory: new MainMemory(this), testOp : ["r0", "r1", "r2", "r3"]
         };
     }
 
@@ -82,24 +82,15 @@ class Cpu extends React.Component<any, CpuState> {
     }
 
     testOpChange = (index: number, e: React.ChangeEvent<HTMLTextAreaElement | HTMLInputElement>) => {
-        console.log(e.target.value)
-        let newValue = parseInt(e.currentTarget.value);
-        if (newValue == null || newValue > 15 ) {
-            let message = "\n<" + new Date().toLocaleTimeString() + "> Register Value should be < 15 and a number";
-            let newTerminal = this.state.terminal + message;
-            this.setState({ terminal: newTerminal })
-            return;
-        }
-        else if (isNaN(newValue)) {
-            let newTestOp = [...this.state.testOp];
-            newTestOp[index] = 0;
-            this.setState({ testOp: newTestOp });
-            return;
-        }
-
         let newTestOp = [...this.state.testOp];
-        newTestOp[index] = newValue;
+        newTestOp[index] = e.currentTarget.value;
         this.setState({ testOp: newTestOp });
+    }
+
+    newTerminalMessage(message: string) {
+        let newMessage = "\n<" + new Date().toLocaleTimeString() + "> " + message;
+        let newTerminal = this.state.terminal + newMessage;
+        this.setState({ terminal: newTerminal })
     }
 
     toHex(x: number): String {

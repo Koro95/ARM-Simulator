@@ -14,7 +14,7 @@ class MainMemory {
             this.memory = "";
     }
 
-    addInstruction(instruction: string, type: string, op1: number | undefined, op2: number | undefined, op3: number | undefined, op4: number | undefined,
+    addInstruction(instruction: string, type: string, op1: string | undefined, op2: string | undefined, op3: string | undefined, op4: string | undefined,
         shift: string | undefined) {
         let newInstruction = new Instruction(instruction, type, op1, op2, op3, op4, shift);
         this.instructions.push(newInstruction);
