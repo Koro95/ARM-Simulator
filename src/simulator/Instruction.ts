@@ -1,74 +1,70 @@
-export { Instruction, RegisterOperand, ImmediateOperand, ShiftOperand}
+export { Instruction, RegisterOperand, ImmediateOperand, ShiftOperand }
 
 class Instruction {
-    instruction: string;
-    type: string;
-    op1: string | undefined;
-    op2: string | undefined;
-    op3: string | undefined;
-    op4: string | undefined;
-    shift: string | undefined;
-    result: number | undefined;
-    updateStatusRegisters: boolean;
+    private instruction: string;
+    private type: string;
+    private op1: RegisterOperand | undefined;
+    private op2: RegisterOperand | ImmediateOperand | ShiftOperand | undefined;
+    private op3: RegisterOperand | ImmediateOperand | ShiftOperand | undefined;
+    private op4: RegisterOperand | ImmediateOperand | ShiftOperand | undefined;
+    private updateStatusRegisters: boolean;
 
-    constructor(instruction: string, type: string, op1: string | undefined, op2: string | undefined,
-        op3: string | undefined, op4: string | undefined, shift: string | undefined) {
+    constructor(instruction: string, type: string,
+        op1: RegisterOperand | undefined,
+        op2: RegisterOperand | ImmediateOperand | ShiftOperand | undefined,
+        op3: RegisterOperand | ImmediateOperand | ShiftOperand | undefined,
+        op4: RegisterOperand | ImmediateOperand | ShiftOperand | undefined,
+        updateStatusRegister: boolean) {
         this.instruction = instruction;
         this.type = type;
         this.op1 = op1;
         this.op2 = op2;
         this.op3 = op3;
         this.op4 = op4;
-        this.shift = shift;
-        this.updateStatusRegisters = false;
-        this.result = undefined;
+        this.updateStatusRegisters = updateStatusRegister;
     }
+
+    getInstruction() { return this.instruction; }
+    getType() { return this.type; }
+    getOp1() { return this.op1; }
+    getOp2() { return this.op2; }
+    getOp3() { return this.op3; }
+    getOp4() { return this.op4; }
+    getUpdateStatusRegister() { return this.updateStatusRegisters; }
 }
 
 class RegisterOperand {
-    index: number;
+    private index: number;
 
     constructor(index: number) {
         this.index = index;
     }
 
-    getIndex() {
-        return this.index;
-    }
+    getIndex() { return this.index; }
 }
 
 class ImmediateOperand {
-    value: number;
+    private value: number;
 
     constructor(value: number) {
         this.value = value;
     }
 
-    getValue() {
-        return this.value;
-    }
+    getValue() { return this.value; }
 }
 
 class ShiftOperand {
-    operand: RegisterOperand | ImmediateOperand;
-    type: string;
-    amount: number;
+    private operandToShift: RegisterOperand | ImmediateOperand;
+    private shiftType: string;
+    private shiftAmountOperand: RegisterOperand | ImmediateOperand;
 
-    constructor(operand: RegisterOperand | ImmediateOperand, type: string, amount: number) {
-        this.operand = operand;
-        this.type = type;
-        this.amount = amount;
+    constructor(operandToShift: RegisterOperand | ImmediateOperand, shiftType: string, shiftAmountOperand: RegisterOperand | ImmediateOperand) {
+        this.operandToShift = operandToShift;
+        this.shiftType = shiftType;
+        this.shiftAmountOperand = shiftAmountOperand;
     }
 
-    getOperand() {
-        return this.operand;
-    }
-
-    getType() {
-        return this.type;
-    }
-
-    getAmount() {
-        return this.amount;
-    }
-} 
+    getOperandToShift() { return this.operandToShift; }
+    getShiftType() { return this.shiftType; }
+    getShiftAmountOperand() { return this.shiftAmountOperand; }
+}

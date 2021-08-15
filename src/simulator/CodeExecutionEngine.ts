@@ -1,5 +1,5 @@
 import { Cpu } from "./Cpu";
-import { Instruction } from "./Instruction";
+import { Instruction, RegisterOperand, ImmediateOperand, ShiftOperand } from "./Instruction";
 
 export { CodeExecutionEngine };
 
@@ -15,7 +15,8 @@ class CodeExecutionEngine {
     executeNextInstruction() {
         let memoryAddress = this.cpu.state.registers[15];
         if (memoryAddress % 4 === 0) {
-            this.currentInstruction = this.cpu.state.mainMemory.instructions[memoryAddress / 4];     
+            this.currentInstruction = this.cpu.state.mainMemory.instructions[memoryAddress / 4];    
+            console.log(this.currentInstruction); 
             this.executeInstruction();
         }
         else {
@@ -27,52 +28,44 @@ class CodeExecutionEngine {
         if (typeof this.currentInstruction !== 'undefined') {
             let inst = this.currentInstruction;
             let newRegisters = [...this.cpu.state.registers];
+            let result;
+            let op1 = this.getOperandValue(inst.getOp1());
+            let op2 = this.getOperandValue(inst.getOp2());
+            let op3 = this.getOperandValue(inst.getOp3());
+            let op4 = this.getOperandValue(inst.getOp4());
 
-            switch (inst.type) {
+            switch (inst.getType()) {
                 case "art":
-                    if (typeof inst.op2 !== 'undefined' && typeof inst.op3 !== 'undefined') {
-                        let a = this.getOperandValue(inst.op2);
-                        let b = this.barrelShifter(inst, this.getOperandValue(inst.op3));
-                        let x = (typeof inst.op4 !== 'undefined') ? this.getOperandValue(inst.op4) : inst.op4;
-
-                        inst.result = this.arithmetic(inst, a, b, x);
+                    if (typeof op2 !== 'undefined' && typeof op3 !== 'undefined') {
+                        result = this.arithmetic(inst, op2, op3, op4);
                     }
                     break;
                 case "log":
-                    if (typeof inst.op1 !== 'undefined' && typeof inst.op2 !== 'undefined') {
+                    if (typeof op1 !== 'undefined' && typeof op2 !== 'undefined') {
                         // AND, ORR, EOR, BIC have 3 operands and need result to update
-                        if (typeof inst.op3 !== 'undefined') {
-                            let a = this.getOperandValue(inst.op2);
-                            let b = this.barrelShifter(inst, this.getOperandValue(inst.op3));
-
-                            inst.result = this.logical(inst, a, b);
+                        if (typeof op3 !== 'undefined') {
+                            result = this.logical(inst, op2, op3);
                         }
                         // CMP, CMN, TST, TEQ have 2 operands and don't need the result
                         else {
-                            let a =this.getOperandValue(inst.op1);
-                            let b = this.barrelShifter(inst, this.getOperandValue(inst.op2));
-
-                            this.logical(inst, a, b);
+                            this.logical(inst, op1, op2);
                         }
                     }
                     break;
                 case "cpj":
-                    if (typeof inst.op2 !== 'undefined') {
-                        let b = this.barrelShifter(inst, this.getOperandValue(inst.op2));
-
-                        inst.result = this.copyShiftJump(inst, b);
+                    if (typeof op2 !== 'undefined') {
+                        result = this.copyShiftJump(inst, op2);
                     }
 
             }
 
             // update registers
-            if (typeof inst.result !== 'undefined' && typeof inst.op1 !== 'undefined') {
-                let targetRegister = this.getOperandValue(inst.op1);
-                newRegisters[targetRegister] = this.setTo32Bit(inst.result);
+            if (typeof result !== 'undefined' && typeof op1 !== 'undefined') {
+                newRegisters[op1] = this.setTo32Bit(result);
                 newRegisters[15]+=4;
                 this.cpu.setState({ registers: newRegisters });
             }
-            if (inst.updateStatusRegisters) {
+            if (inst.getUpdateStatusRegister()) {
                 this.cpu.setState({ statusRegister: this.cpu.state.statusRegister });
             }
         }
@@ -85,7 +78,7 @@ class CodeExecutionEngine {
         let y = undefined;
         let isArithmetic = true;
 
-        switch (inst.instruction) {
+        switch (inst.getInstruction()) {
             case "ADD": y = (a + b); break;
             case "ADC": y = (a + b + this.cpu.state.statusRegister.getC()); break;
             case "SUB": y = (a + (~b + 1)); break;
@@ -96,7 +89,7 @@ class CodeExecutionEngine {
             case "MLA": y = ((typeof x !== 'undefined') ? (a * b) + x : undefined); isArithmetic = false;
         }
 
-        if (inst.updateStatusRegisters && typeof y !== 'undefined') {
+        if (inst.getUpdateStatusRegister() && typeof y !== 'undefined') {
             this.cpu.state.statusRegister.updateFlags(isArithmetic, y, a, b);
         }
 
@@ -106,19 +99,20 @@ class CodeExecutionEngine {
     logical(inst: Instruction, a: number, b: number,): number | undefined {
         let y = undefined;
         let isArithmetic = false;
+        let updateStatusRegister = inst.getUpdateStatusRegister();
 
-        switch (inst.instruction) {
+        switch (inst.getInstruction()) {
             case "AND": y = (a & b); break;
             case "ORR": y = (a | b); break;
             case "TEQ": y = (a ^ b); break;
             case "BIC": y = (a & (~b)); break;
-            case "CMP": y = (a + (~b + 1)); isArithmetic = true; inst.updateStatusRegisters = true; break;
-            case "CMN": y = (a + b); isArithmetic = true; inst.updateStatusRegisters = true; break;
-            case "TST": y = (a & b); inst.updateStatusRegisters = true; break;
-            case "EOR": y = (a ^ b); inst.updateStatusRegisters = true;
+            case "CMP": y = (a + (~b + 1)); isArithmetic = true; updateStatusRegister = true; break;
+            case "CMN": y = (a + b); isArithmetic = true; updateStatusRegister = true; break;
+            case "TST": y = (a & b); updateStatusRegister = true; break;
+            case "EOR": y = (a ^ b); updateStatusRegister = true;
         }
 
-        if (inst.updateStatusRegisters && typeof y !== 'undefined') {
+        if (updateStatusRegister && typeof y !== 'undefined') {
             this.cpu.state.statusRegister.updateFlags(isArithmetic, y, a, b);
         }
 
@@ -128,7 +122,7 @@ class CodeExecutionEngine {
     copyShiftJump(inst: Instruction, b: number): number | undefined {
         let y = undefined;
 
-        switch (inst.instruction) {
+        switch (inst.getInstruction()) {
             case "MOV": break;
             case "MVN":
         }
@@ -136,70 +130,63 @@ class CodeExecutionEngine {
         return y;
     }
 
-    barrelShifter(inst: Instruction, x: number): number {
-        let y = x;
+    getOperandValue(operand: RegisterOperand | ImmediateOperand | ShiftOperand | undefined): number | undefined {
+        if (operand instanceof RegisterOperand) {
+            return this.cpu.state.registers[operand.getIndex()];
+        }
+        else if (operand instanceof ImmediateOperand) {
+            return operand.getValue();
+        }
+        else if (operand instanceof ShiftOperand) {
+            return this.barrelShifter(operand);
+        }
+        else {
+            return undefined;
+        }
+    }
 
-        if (typeof inst.shift === 'string') {
-            let shiftType = inst.shift.substr(0, 3)
-            let temp = parseInt(inst.shift.substr(5));
-            if (temp === 0) {
-                return y;
-            }
+    barrelShifter(shiftOperand: ShiftOperand | undefined): number | undefined {
+        if (typeof shiftOperand === 'undefined') {
+            return undefined;
+        }
 
-            let shiftAmount = inst.shift.substr(4, 1) === "#" ? temp : this.cpu.state.registers[temp];
-            let carry;
+        let result;
+        let x = this.getOperandValue(shiftOperand.getOperandToShift())
+        let shiftAmount = this.getOperandValue(shiftOperand.getShiftAmountOperand());
+        let carry; 
 
-            switch (shiftType) {
+        if (typeof x !== 'undefined' && typeof shiftAmount !== 'undefined') {
+            switch (shiftOperand.getShiftType()) {
                 case "LSL":
                 case "ASL":
-                    y = x << shiftAmount;
+                    result = x << shiftAmount;
                     carry = (x << (shiftAmount - 1)) & 0x80000000;
                     break;
                 case "LSR":
-                    y = x >>> shiftAmount;
+                    result = x >>> shiftAmount;
                     carry = (x >>> (shiftAmount - 1)) & 1;
                     break;
                 case "ASR":
-                    y = x >> shiftAmount;
+                    result = x >> shiftAmount;
                     carry = (x >> (shiftAmount - 1)) & 1;
                     break;
                 case "ROR":
-                    y = (x >>> shiftAmount) | (x << (32 - shiftAmount));
+                    result = (x >>> shiftAmount) | (x << (32 - shiftAmount));
                     carry = (x >>> (shiftAmount - 1)) & 1;
                     break;
                 case "RRX":
-                    y = (x >>> shiftAmount) | (x << (32 - shiftAmount + 1));
-                    y |= (this.cpu.state.statusRegister.getC() << (32 - shiftAmount));
+                    result = (x >>> shiftAmount) | (x << (32 - shiftAmount + 1));
+                    result |= (this.cpu.state.statusRegister.getC() << (32 - shiftAmount));
                     carry = (x >>> (shiftAmount - 1)) & 1;
                     break;
             }
-            
-            if (typeof this.currentInstruction !== 'undefined' && this.currentInstruction.updateStatusRegisters) {
-                this.cpu.state.statusRegister.setC(carry === 0 ? 0 : 1);
-            }
-        }
-
-        return y;
-    }
-
-    getOperandValue(operand: string): number {
-        let operandType = operand.substr(0,1);
-        let operandValue = parseInt(operand.substr(1));
-
-        // case for register r0-r15
-        if (operandType === "r" && operandValue >= 0 && operandValue < 16) {
-            return this.cpu.state.registers[operandValue];
         }
         
-        // case for specially named registers
-        switch(operand) {
-            case "sp": return this.cpu.state.registers[13];
-            case "lr": return this.cpu.state.registers[14];
-            case "pc": return this.cpu.state.registers[15];
+        if (typeof this.currentInstruction !== 'undefined' && this.currentInstruction.getUpdateStatusRegister() && typeof carry !== 'undefined') {
+            this.cpu.state.statusRegister.setC(carry === 0 ? 0 : 1);
         }
 
-        // case for immediate values
-        return operandValue;
+        return result;
     }
 
     setTo32Bit(x: number): number {
