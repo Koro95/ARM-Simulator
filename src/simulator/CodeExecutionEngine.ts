@@ -1,5 +1,5 @@
 import { Cpu } from "./Cpu";
-import { Instruction, RegisterOperand, ImmediateOperand, ShiftOperand } from "./Instruction";
+import { Instruction, Operand, RegisterOperand, ImmediateOperand, ShiftOperand } from "./Instruction";
 
 export { CodeExecutionEngine };
 
@@ -130,7 +130,7 @@ class CodeExecutionEngine {
         return y;
     }
 
-    getOperandValue(operand: RegisterOperand | ImmediateOperand | ShiftOperand | undefined): number | undefined {
+    getOperandValue(operand: Operand | undefined): number | undefined {
         if (operand instanceof RegisterOperand) {
             return this.cpu.state.registers[operand.getIndex()];
         }

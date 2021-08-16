@@ -1,19 +1,19 @@
-export { Instruction, RegisterOperand, ImmediateOperand, ShiftOperand }
+export { Instruction, Operand, RegisterOperand, ImmediateOperand, ShiftOperand }
 
 class Instruction {
     private instruction: string;
     private type: string;
-    private op1: RegisterOperand | undefined;
-    private op2: RegisterOperand | ImmediateOperand | ShiftOperand | undefined;
-    private op3: RegisterOperand | ImmediateOperand | ShiftOperand | undefined;
-    private op4: RegisterOperand | ImmediateOperand | ShiftOperand | undefined;
+    private op1: Operand | undefined;
+    private op2: Operand | undefined;
+    private op3: Operand | undefined;
+    private op4: Operand | undefined;
     private updateStatusRegisters: boolean;
 
     constructor(instruction: string, type: string,
-        op1: RegisterOperand | undefined,
-        op2: RegisterOperand | ImmediateOperand | ShiftOperand | undefined,
-        op3: RegisterOperand | ImmediateOperand | ShiftOperand | undefined,
-        op4: RegisterOperand | ImmediateOperand | ShiftOperand | undefined,
+        op1: Operand | undefined,
+        op2: Operand | undefined,
+        op3: Operand | undefined,
+        op4: Operand | undefined,
         updateStatusRegister: boolean) {
         this.instruction = instruction;
         this.type = type;
@@ -33,32 +33,39 @@ class Instruction {
     getUpdateStatusRegister() { return this.updateStatusRegisters; }
 }
 
-class RegisterOperand {
+class Operand {
+
+}
+
+class RegisterOperand extends Operand {
     private index: number;
 
     constructor(index: number) {
+        super();
         this.index = index;
     }
 
     getIndex() { return this.index; }
 }
 
-class ImmediateOperand {
+class ImmediateOperand extends Operand {
     private value: number;
 
     constructor(value: number) {
+        super();
         this.value = value;
     }
 
     getValue() { return this.value; }
 }
 
-class ShiftOperand {
-    private operandToShift: RegisterOperand | ImmediateOperand;
+class ShiftOperand extends Operand {
+    private operandToShift: Operand;
     private shiftType: string;
-    private shiftAmountOperand: RegisterOperand | ImmediateOperand;
+    private shiftAmountOperand: Operand;
 
-    constructor(operandToShift: RegisterOperand | ImmediateOperand, shiftType: string, shiftAmountOperand: RegisterOperand | ImmediateOperand) {
+    constructor(operandToShift: Operand, shiftType: string, shiftAmountOperand: Operand) {
+        super();
         this.operandToShift = operandToShift;
         this.shiftType = shiftType;
         this.shiftAmountOperand = shiftAmountOperand;
