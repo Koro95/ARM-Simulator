@@ -1,4 +1,4 @@
-import { Cpu } from "./Cpu";
+import { Cpu, MessageType } from "./Cpu";
 import { Instruction, Operand, RegisterOperand, ImmediateOperand, ShiftOperand } from "./Instruction";
 
 export { MainMemory };
@@ -22,10 +22,10 @@ class MainMemory {
 
         stringOperands.forEach(op => {
             let newOperand;
-            if (typeof op !== 'undefined' ) {
+            if (typeof op !== 'undefined' && op !== "") {
                 newOperand = this.addOperand(op);
                 if (typeof newOperand === 'undefined') {
-                    this.cpu.newTerminalMessage(op + " is an invalind operand!");
+                    this.cpu.newTerminalMessage(MessageType.Error, op + " is an invalind operand!");
                     return;
                 }        
             }
@@ -82,7 +82,7 @@ class MainMemory {
                 break;
             case "#":
                 //TODO: check correct immediate value
-                if(operandValue > 23234) {
+                if(operandValue < 23234) {
                     return new ImmediateOperand(operandValue);
                 }
                 break;
@@ -97,12 +97,12 @@ class MainMemory {
         let address = 0;
         console.log(this.memory)
         this.instructions.forEach(function (currentInstruction) {
-            newMemory +=  toHex(address) + currentInstruction.getInstruction().padStart(8, " ").padEnd(10, " ") +"r"+ currentInstruction.getOp1() +", r"+ currentInstruction.getOp2();
+            newMemory +=  toHex(address) + currentInstruction.getInstruction().padStart(8, " ").padEnd(10, " ") + currentInstruction.getOp1() + ", " + currentInstruction.getOp2();
             if (typeof currentInstruction.getOp3() !== 'undefined') {
-                newMemory += ", r"+ currentInstruction.getOp3()
+                newMemory += ", "+ currentInstruction.getOp3()
             }
             if (typeof currentInstruction.getOp4() !== 'undefined') {
-                newMemory += ", r"+ currentInstruction.getOp4()
+                newMemory += ", "+ currentInstruction.getOp4()
             }
             newMemory += "\n";
             address += 4;

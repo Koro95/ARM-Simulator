@@ -66,7 +66,6 @@
 
 .App-terminal {
   background-color: black;
-  color: white;
   text-align: left;
   height: 100%;
   width: 100%;
@@ -74,6 +73,29 @@
   border: none;
   margin: 0;
   padding: 0;
+  overflow-y: auto;
+}
+
+.App-terminal-content {
+  background-color: black;
+  font-size: 15px;
+  text-align: left;
+  resize: none;
+  border: none;
+  margin: 0;
+  padding: 0;
+}
+
+.App-terminal-text {
+  color: white;
+}
+
+.App-terminal-warning {
+  color: rgb(255, 208, 0);
+}
+
+.App-terminal-error {
+  color: red;
 }
 
 .App-debugger {

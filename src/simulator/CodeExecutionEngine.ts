@@ -1,4 +1,4 @@
-import { Cpu } from "./Cpu";
+import { Cpu, MessageType } from "./Cpu";
 import { Instruction, Operand, RegisterOperand, ImmediateOperand, ShiftOperand } from "./Instruction";
 
 export { CodeExecutionEngine };
@@ -15,12 +15,11 @@ class CodeExecutionEngine {
     executeNextInstruction() {
         let memoryAddress = this.cpu.state.registers[15];
         if (memoryAddress % 4 === 0) {
-            this.currentInstruction = this.cpu.state.mainMemory.instructions[memoryAddress / 4];    
-            console.log(this.currentInstruction); 
+            this.currentInstruction = this.cpu.state.mainMemory.instructions[memoryAddress / 4];     
             this.executeInstruction();
         }
         else {
-            this.cpu.newTerminalMessage("Invalid Memory Adress!")
+            this.cpu.newTerminalMessage(MessageType.Error, "Invalid Memory Adress!")
         }
     }
 
@@ -36,18 +35,26 @@ class CodeExecutionEngine {
 
             switch (inst.getType()) {
                 case "art":
-                    if (typeof op2 !== 'undefined' && typeof op3 !== 'undefined') {
-                        result = this.arithmetic(inst, op2, op3, op4);
+                    if (typeof op2 !== 'undefined') {
+                        if (typeof op3 !== 'undefined') {
+                            result = this.arithmetic(inst, op2, op3, op4);
+                        }
+                        else if (typeof op1 !== 'undefined') {
+                            result = this.arithmetic(inst, op1, op2, op4);
+                        }
                     }
                     break;
                 case "log":
-                    if (typeof op1 !== 'undefined' && typeof op2 !== 'undefined') {
+                    if (typeof op2 !== 'undefined') {
                         // AND, ORR, EOR, BIC have 3 operands and need result to update
                         if (typeof op3 !== 'undefined') {
                             result = this.logical(inst, op2, op3);
                         }
+                        else if (typeof op1 !== 'undefined') {
+                            result = this.logical(inst, op1, op2);
+                        }
                         // CMP, CMN, TST, TEQ have 2 operands and don't need the result
-                        else {
+                        else if (typeof op1 !== 'undefined') {
                             this.logical(inst, op1, op2);
                         }
                     }
@@ -70,7 +77,7 @@ class CodeExecutionEngine {
             }
         }
         else {
-            this.cpu.newTerminalMessage("Instructions finished!")
+            this.cpu.newTerminalMessage(MessageType.Warning, "Instructions finished!")
         }
     }
 

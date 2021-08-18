@@ -46,6 +46,7 @@ class RegisterOperand extends Operand {
     }
 
     getIndex() { return this.index; }
+    toString() { return "r" + this.index; }
 }
 
 class ImmediateOperand extends Operand {
@@ -57,6 +58,7 @@ class ImmediateOperand extends Operand {
     }
 
     getValue() { return this.value; }
+    toString() { return "#" + this.value; }
 }
 
 class ShiftOperand extends Operand {
@@ -74,4 +76,5 @@ class ShiftOperand extends Operand {
     getOperandToShift() { return this.operandToShift; }
     getShiftType() { return this.shiftType; }
     getShiftAmountOperand() { return this.shiftAmountOperand; }
+    toString() { return this.operandToShift.toString() + ", " + this.shiftType + " " + this.shiftAmountOperand.toString(); }
 }
