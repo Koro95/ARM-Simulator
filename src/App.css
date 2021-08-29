@@ -10,7 +10,8 @@
 .App-header {
   background-color: #0553c7;
   display: flex;
-  flex: 5;
+  flex: 4;
+  height: 4vh;
   align-items: center;
   justify-content: center;
 }
@@ -18,7 +19,8 @@
 .App-body {
   background-color: #282c34;
   display: flex;
-  flex: 95;
+  flex: 96;
+  height: 96vh;
 }
 
 .App-userinput {
