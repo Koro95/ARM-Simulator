@@ -30,6 +30,10 @@ class StatusRegister {
         }
     }
 
+    getFlags() {
+        return this.flags;
+    }
+
     setN(x: number) {
         this.flags[0] = x;
     }

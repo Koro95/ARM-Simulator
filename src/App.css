@@ -33,6 +33,15 @@
   padding: 0;
 }
 
+.App-memory {
+  background-color: white;
+  color: black;
+  text-align: left;
+  font-size: 14px;
+  margin: 0;
+  padding: 0;
+}
+
 .App-cpustate {
   background-color: white;
   color: black;
@@ -78,7 +87,7 @@
 
 .App-terminal-content {
   background-color: black;
-  font-size: 15px;
+  font-size: 14px;
   text-align: left;
   resize: none;
   border: none;

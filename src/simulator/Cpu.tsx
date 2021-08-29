@@ -14,6 +14,12 @@ const parse = require('../parser/parser').parse;
 
 export { Cpu, MessageType };
 
+enum MessageType {
+    Text,
+    Warning,
+    Error
+}
+
 type CpuState = {
     registers: number[];
     statusRegister: StatusRegister;
@@ -22,6 +28,7 @@ type CpuState = {
     terminal: Terminal;
     mainMemory: MainMemory;
     testOp: string[];
+    cond: string;
 }
 
 class Cpu extends React.Component<any, CpuState> {
@@ -37,7 +44,7 @@ class Cpu extends React.Component<any, CpuState> {
         this.state = {
             registers: initializedRegisters, statusRegister: new StatusRegister(),
             codeExecutionEngine: new CodeExecutionEngine(this), userInput: ".arm\n.text\n.global _start\n_start:\n\tADD r1, r2, r3",
-            terminal: new Terminal(welcomeMessage), mainMemory: new MainMemory(this), testOp : ["r0", "r1", "r2", "r3"]
+            terminal: new Terminal(welcomeMessage), mainMemory: new MainMemory(this), testOp: ["r0", "r1", "r2", "r3"], cond: ""
         };
     }
 
@@ -87,6 +94,25 @@ class Cpu extends React.Component<any, CpuState> {
         this.setState({ testOp: newTestOp });
     }
 
+    checkConditionAndOperands(numOfOperands: number){
+        let check = true;
+
+        for (let index = 0; index < numOfOperands; index++) {
+            if(this.state.testOp[index] === "") {
+                this.newTerminalMessage(MessageType.Error, "More operands needed!")
+                check = false;
+                break;
+            }
+        }
+        
+        if (!["EQ", "NE", "HS", "CS", "LO", "CC", "MI", "PL", "VS", "VC", "HI", "LS", "GE", "LT", "GT", "LE", "AL", "NV"].includes(this.state.cond)) {
+            this.newTerminalMessage(MessageType.Error, "Invalid Condition")
+            check = false;
+        }
+
+        return check;
+    }
+
     newTerminalMessage(type: MessageType, message: string) {
         let newMessage = "\n<" + new Date().toLocaleTimeString() + "> " + message;
         this.state.terminal.addMessage(type, newMessage);
@@ -98,8 +124,8 @@ class Cpu extends React.Component<any, CpuState> {
     }
 
     render() {
-        const style = {style: {padding: 0, 'padding-left': 10, width: '90px'}} as InputBaseComponentProps;
-        const testOperandsStyle = {style: {padding: 0, 'padding-left': 10, width: '50px', border: 'black solid 1px', 'margin-bottom': 2}} as InputBaseComponentProps;
+        const style = { style: { padding: 0, 'padding-left': 10, width: '90px' } } as InputBaseComponentProps;
+        const testOperandsStyle = { style: { padding: 0, 'padding-left': 10, width: '100px', border: 'black solid 1px', 'margin-bottom': 2 } } as InputBaseComponentProps;
 
         return (
             <div className="App-body">
@@ -136,68 +162,112 @@ class Cpu extends React.Component<any, CpuState> {
                     </Box>
                     <Box height="25.25%" mb="0.5%" className="App-debugger">
                         <div>N: {this.state.statusRegister.getN()}, Z: {this.state.statusRegister.getZ()}, C: {this.state.statusRegister.getC()}, V: {this.state.statusRegister.getV()}</div>
-                        
+
                         <div>Op1: <InputBase inputProps={testOperandsStyle} value={this.state.testOp[0]} onChange={e => this.testOpChange(0, e)} /> </div>
                         <div>Op2: <InputBase inputProps={testOperandsStyle} value={this.state.testOp[1]} onChange={e => this.testOpChange(1, e)} /> </div>
                         <div>Op3: <InputBase inputProps={testOperandsStyle} value={this.state.testOp[2]} onChange={e => this.testOpChange(2, e)} /> </div>
-                        <div>Op4: <InputBase inputProps={testOperandsStyle} value={this.state.testOp[3]} onChange={e => this.testOpChange(3, e)} /> </div>                      
-                        
+                        <div>Op4: <InputBase inputProps={testOperandsStyle} value={this.state.testOp[3]} onChange={e => this.testOpChange(3, e)} /> </div>
+                        <div>Cond: <InputBase inputProps={testOperandsStyle} value={this.state.cond} onChange={e => this.setState({ cond: e.currentTarget.value })} /> </div>
                         <Button onClick={() => this.state.codeExecutionEngine.executeNextInstruction()} variant="outlined" color="primary">NextInst</Button>
                         <Button onClick={() => this.state.mainMemory.compile()} variant="outlined" color="primary">Compile Memory</Button>
                     </Box>
                     <Box height="19.75%" className="App-options">
                         <div>Options</div>
                         <div>
-                            <Button onClick={() => {if (this.state.testOp[0] !== "" && this.state.testOp[1] !== "") {    
-                                this.state.mainMemory.addInstruction("AND", "log", this.state.testOp[0], this.state.testOp[1], this.state.testOp[2], undefined, undefined)}
-                                else {this.newTerminalMessage(MessageType.Error, "More operands needed!")}}} variant="outlined" color="primary">AND</Button>     
-                            <Button onClick={() => {if (this.state.testOp[0] !== "" && this.state.testOp[1] !== "") {
-                                this.state.mainMemory.addInstruction("ORR", "log", this.state.testOp[0], this.state.testOp[1], this.state.testOp[2], undefined, undefined)}
-                                else {this.newTerminalMessage(MessageType.Error, "More operands needed!")}}} variant="outlined" color="primary">ORR</Button>
-                            <Button onClick={() => {if (this.state.testOp[0] !== "" && this.state.testOp[1] !== "") {
-                                this.state.mainMemory.addInstruction("EOR", "log", this.state.testOp[0], this.state.testOp[1], this.state.testOp[2], undefined, undefined)}
-                                else {this.newTerminalMessage(MessageType.Error, "More operands needed!")}}} variant="outlined" color="primary">EOR</Button>
-                            <Button onClick={() => {if (this.state.testOp[0] !== "" && this.state.testOp[1] !== "") {
-                                this.state.mainMemory.addInstruction("BIC", "log", this.state.testOp[0], this.state.testOp[1], this.state.testOp[2], undefined, undefined)}
-                                else {this.newTerminalMessage(MessageType.Error, "More operands needed!")}}} variant="outlined" color="primary">BIC</Button>
-                            <Button onClick={() => {if (this.state.testOp[0] !== "" && this.state.testOp[1] !== "") {
-                                this.state.mainMemory.addInstruction("CMP", "log", this.state.testOp[0], this.state.testOp[1], undefined, undefined, undefined)}
-                                else {this.newTerminalMessage(MessageType.Error, "More operands needed!")}}} variant="outlined" color="primary">CMP</Button>
-                            <Button onClick={() => {if (this.state.testOp[0] !== "" && this.state.testOp[1] !== "") {
-                                this.state.mainMemory.addInstruction("CMN", "log", this.state.testOp[0], this.state.testOp[1], undefined, undefined, undefined)}
-                                else {this.newTerminalMessage(MessageType.Error, "More operands needed!")}}} variant="outlined" color="primary">CMN</Button>
-                            <Button onClick={() => {if (this.state.testOp[0] !== "" && this.state.testOp[1] !== "") {
-                                this.state.mainMemory.addInstruction("TST", "log", this.state.testOp[0], this.state.testOp[1], undefined, undefined, undefined)}
-                                else {this.newTerminalMessage(MessageType.Error, "More operands needed!")}}} variant="outlined" color="primary">TST</Button>
-                            <Button onClick={() => {if (this.state.testOp[0] !== "" && this.state.testOp[1] !== "") {
-                                this.state.mainMemory.addInstruction("TEQ", "log", this.state.testOp[0], this.state.testOp[1], undefined, undefined, undefined)}
-                                else {this.newTerminalMessage(MessageType.Error, "More operands needed!")}}} variant="outlined" color="primary">TEQ</Button>
+                            <Button onClick={() => {
+                                if (this.checkConditionAndOperands(2)) {
+                                    this.state.mainMemory.addInstruction("MOV", this.state.cond, false, this.state.testOp[0], this.state.testOp[1], undefined, undefined)
+                                }
+                            }} variant="outlined" color="primary">MOV</Button>
+                            <Button onClick={() => {
+                                if (this.checkConditionAndOperands(2)) {
+                                    this.state.mainMemory.addInstruction("MVN", this.state.cond, false, this.state.testOp[0], this.state.testOp[1], undefined, undefined)
+                                }
+                            }} variant="outlined" color="primary">MVN</Button>
                         </div>
                         <div>
-                            <Button onClick={() => {if (this.state.testOp[0] !== "" && this.state.testOp[1] !== "") {
-                                this.state.mainMemory.addInstruction("ADD", "art", this.state.testOp[0], this.state.testOp[1], this.state.testOp[2], undefined, undefined)}
-                                else {this.newTerminalMessage(MessageType.Error, "More operands needed!")}}} variant="outlined" color="primary">ADD</Button>
-                            <Button onClick={() => {if (this.state.testOp[0] !== "" && this.state.testOp[1] !== "") {
-                                this.state.mainMemory.addInstruction("ADC", "art", this.state.testOp[0], this.state.testOp[1], this.state.testOp[2], undefined, undefined)}
-                                else {this.newTerminalMessage(MessageType.Error, "More operands needed!")}}} variant="outlined" color="primary">ADC</Button>
-                            <Button onClick={() => {if (this.state.testOp[0] !== "" && this.state.testOp[1] !== "") {
-                                this.state.mainMemory.addInstruction("SUB", "art", this.state.testOp[0], this.state.testOp[1], this.state.testOp[2], undefined, undefined)}
-                                else {this.newTerminalMessage(MessageType.Error, "More operands needed!")}}} variant="outlined" color="primary">SUB</Button>
-                            <Button onClick={() => {if (this.state.testOp[0] !== "" && this.state.testOp[1] !== "") {
-                                this.state.mainMemory.addInstruction("SBC", "art", this.state.testOp[0], this.state.testOp[1], this.state.testOp[2], undefined, undefined)}
-                                else {this.newTerminalMessage(MessageType.Error, "More operands needed!")}}} variant="outlined" color="primary">SBC</Button>
-                            <Button onClick={() => {if (this.state.testOp[0] !== "" && this.state.testOp[1] !== "") {
-                                this.state.mainMemory.addInstruction("RSB", "art", this.state.testOp[0], this.state.testOp[1], this.state.testOp[2], undefined, undefined)}
-                                else {this.newTerminalMessage(MessageType.Error, "More operands needed!")}}} variant="outlined" color="primary">RSB</Button>
-                            <Button onClick={() => {if (this.state.testOp[0] !== "" && this.state.testOp[1] !== "") {
-                                this.state.mainMemory.addInstruction("RSC", "art", this.state.testOp[0], this.state.testOp[1], this.state.testOp[2], undefined, undefined)}
-                                else {this.newTerminalMessage(MessageType.Error, "More operands needed!")}}} variant="outlined" color="primary">RSC</Button>
-                            <Button onClick={() => {if (this.state.testOp[0] !== "" && this.state.testOp[1] !== "") {
-                                this.state.mainMemory.addInstruction("MUL", "art", this.state.testOp[0], this.state.testOp[1], this.state.testOp[2], undefined, undefined)}
-                                else {this.newTerminalMessage(MessageType.Error, "More operands needed!")}}} variant="outlined" color="primary">MUL</Button>
-                            <Button onClick={() => {if (this.state.testOp[0] !== "" && this.state.testOp[1] !== "" && this.state.testOp[2] !== "" && this.state.testOp[3] !== "") {
-                                this.state.mainMemory.addInstruction("MLA", "art", this.state.testOp[0], this.state.testOp[1], this.state.testOp[2], this.state.testOp[3], undefined)}
-                                else {this.newTerminalMessage(MessageType.Error, "More operands needed!")}}} variant="outlined" color="primary">MLA</Button>
+                            <Button onClick={() => {
+                                if (this.checkConditionAndOperands(2)) {
+                                    this.state.mainMemory.addInstruction("AND", this.state.cond, false, this.state.testOp[0], this.state.testOp[1], this.state.testOp[2], undefined)
+                                }
+                            }} variant="outlined" color="primary">AND</Button>
+                            <Button onClick={() => {
+                                if (this.checkConditionAndOperands(2)) {
+                                    this.state.mainMemory.addInstruction("ORR", this.state.cond, false, this.state.testOp[0], this.state.testOp[1], this.state.testOp[2], undefined)
+                                }
+                            }} variant="outlined" color="primary">ORR</Button>
+                            <Button onClick={() => {
+                                if (this.checkConditionAndOperands(2)) {
+                                    this.state.mainMemory.addInstruction("EOR", this.state.cond, false, this.state.testOp[0], this.state.testOp[1], this.state.testOp[2], undefined)
+                                }
+                            }} variant="outlined" color="primary">EOR</Button>
+                            <Button onClick={() => {
+                                if (this.checkConditionAndOperands(2)) {
+                                    this.state.mainMemory.addInstruction("BIC", this.state.cond, false, this.state.testOp[0], this.state.testOp[1], this.state.testOp[2], undefined)
+                                }
+                            }} variant="outlined" color="primary">BIC</Button>
+                            <Button onClick={() => {
+                                if (this.checkConditionAndOperands(2)) {
+                                    this.state.mainMemory.addInstruction("CMP", this.state.cond, false, this.state.testOp[0], this.state.testOp[1], undefined, undefined)
+                                }
+                            }} variant="outlined" color="primary">CMP</Button>
+                            <Button onClick={() => {
+                                if (this.checkConditionAndOperands(2)) {
+                                    this.state.mainMemory.addInstruction("CMN", this.state.cond, false, this.state.testOp[0], this.state.testOp[1], undefined, undefined)
+                                }
+                            }} variant="outlined" color="primary">CMN</Button>
+                            <Button onClick={() => {
+                                if (this.checkConditionAndOperands(2)) {
+                                    this.state.mainMemory.addInstruction("TST", this.state.cond, false, this.state.testOp[0], this.state.testOp[1], undefined, undefined)
+                                }
+                            }} variant="outlined" color="primary">TST</Button>
+                            <Button onClick={() => {
+                                if (this.checkConditionAndOperands(2)) {
+                                    this.state.mainMemory.addInstruction("TEQ", this.state.cond, false, this.state.testOp[0], this.state.testOp[1], undefined, undefined)
+                                }
+                            }} variant="outlined" color="primary">TEQ</Button>
+                        </div>
+                        <div>
+                            <Button onClick={() => {
+                                if (this.checkConditionAndOperands(2)) {
+                                    this.state.mainMemory.addInstruction("ADD", this.state.cond, false, this.state.testOp[0], this.state.testOp[1], this.state.testOp[2], undefined)
+                                }
+                            }} variant="outlined" color="primary">ADD</Button>
+                            <Button onClick={() => {
+                                if (this.checkConditionAndOperands(2)) {
+                                    this.state.mainMemory.addInstruction("ADC", this.state.cond, false, this.state.testOp[0], this.state.testOp[1], this.state.testOp[2], undefined)
+                                }
+                            }} variant="outlined" color="primary">ADC</Button>
+                            <Button onClick={() => {
+                                if (this.checkConditionAndOperands(2)) {
+                                    this.state.mainMemory.addInstruction("SUB", this.state.cond, false, this.state.testOp[0], this.state.testOp[1], this.state.testOp[2], undefined)
+                                }
+                            }} variant="outlined" color="primary">SUB</Button>
+                            <Button onClick={() => {
+                                if (this.checkConditionAndOperands(2)) {
+                                    this.state.mainMemory.addInstruction("SBC", this.state.cond, false, this.state.testOp[0], this.state.testOp[1], this.state.testOp[2], undefined)
+                                }
+                            }} variant="outlined" color="primary">SBC</Button>
+                            <Button onClick={() => {
+                                if (this.checkConditionAndOperands(2)) {
+                                    this.state.mainMemory.addInstruction("RSB", this.state.cond, false, this.state.testOp[0], this.state.testOp[1], this.state.testOp[2], undefined)
+                                }
+                            }} variant="outlined" color="primary">RSB</Button>
+                            <Button onClick={() => {
+                                if (this.checkConditionAndOperands(2)) {
+                                    this.state.mainMemory.addInstruction("RSC", this.state.cond, false, this.state.testOp[0], this.state.testOp[1], this.state.testOp[2], undefined)
+                                }
+                            }} variant="outlined" color="primary">RSC</Button>
+                            <Button onClick={() => {
+                                if (this.checkConditionAndOperands(2)) {
+                                    this.state.mainMemory.addInstruction("MUL", this.state.cond, false, this.state.testOp[0], this.state.testOp[1], this.state.testOp[2], undefined)
+                                }
+                            }} variant="outlined" color="primary">MUL</Button>
+                            <Button onClick={() => {
+                                if (this.checkConditionAndOperands(4)) {
+                                    this.state.mainMemory.addInstruction("MLA", this.state.cond, false, this.state.testOp[0], this.state.testOp[1], this.state.testOp[2], this.state.testOp[3])
+                                }
+                            }} variant="outlined" color="primary">MLA</Button>
                         </div>
                     </Box>
                 </Box>
@@ -213,7 +283,7 @@ class Cpu extends React.Component<any, CpuState> {
                                 <textarea className="App-userinput" value={this.state.userInput.toString()} onChange={e => this.userInputChange(e)} onKeyDown={e => this.allowTabKey(e)} />
                             </TabPanel>
                             <TabPanel>
-                                <textarea className="App-userinput" value={this.state.mainMemory.memory} disabled />
+                                {this.state.mainMemory.render()}
                             </TabPanel>
                         </Tabs>
                     </Box>
@@ -240,18 +310,14 @@ class Terminal {
     render() {
         return (<Box className="App-terminal" >
             {this.messages.map(message => {
-                switch(message[0]) {
-                   case MessageType.Text: return <div className="App-terminal-content App-terminal-text"> {message[1]} </div>
-                   case MessageType.Warning: return <div className="App-terminal-content App-terminal-warning"> {message[1]} </div>
-                   case MessageType.Error: return <div className="App-terminal-content App-terminal-error"> {message[1]} </div>
-                }})
+                switch (message[0]) {
+                    case MessageType.Text: return <div className="App-terminal-content App-terminal-text"> {message[1]} </div>
+                    case MessageType.Warning: return <div className="App-terminal-content App-terminal-warning"> {message[1]} </div>
+                    case MessageType.Error: return <div className="App-terminal-content App-terminal-error"> {message[1]} </div>
+                }
+                return undefined;
+            })
             }
         </Box>)
     }
-}
-
-enum MessageType {
-    Text,
-    Warning,
-    Error
 }

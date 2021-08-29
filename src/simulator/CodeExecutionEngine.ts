@@ -1,5 +1,5 @@
 import { Cpu, MessageType } from "./Cpu";
-import { Instruction, Operand, RegisterOperand, ImmediateOperand, ShiftOperand } from "./Instruction";
+import { Instruction, ArithmeticInstruction, LogicInstruction, CopyJumpInstruction, Operand, RegisterOperand, ImmediateOperand, ShiftOperand } from "./InstructionsAndOperands";
 
 export { CodeExecutionEngine };
 
@@ -15,7 +15,7 @@ class CodeExecutionEngine {
     executeNextInstruction() {
         let memoryAddress = this.cpu.state.registers[15];
         if (memoryAddress % 4 === 0) {
-            this.currentInstruction = this.cpu.state.mainMemory.instructions[memoryAddress / 4];     
+            this.currentInstruction = this.cpu.state.mainMemory.memoryLines.get(memoryAddress)?.getContent();
             this.executeInstruction();
         }
         else {
@@ -27,49 +27,89 @@ class CodeExecutionEngine {
         if (typeof this.currentInstruction !== 'undefined') {
             let inst = this.currentInstruction;
             let newRegisters = [...this.cpu.state.registers];
-            let result;
-            let op1 = this.getOperandValue(inst.getOp1());
-            let op2 = this.getOperandValue(inst.getOp2());
-            let op3 = this.getOperandValue(inst.getOp3());
-            let op4 = this.getOperandValue(inst.getOp4());
+            
+            newRegisters[15] += 4;
+            this.cpu.setState({ registers: newRegisters });
 
-            switch (inst.getType()) {
-                case "art":
-                    if (typeof op2 !== 'undefined') {
-                        if (typeof op3 !== 'undefined') {
-                            result = this.arithmetic(inst, op2, op3, op4);
-                        }
-                        else if (typeof op1 !== 'undefined') {
-                            result = this.arithmetic(inst, op1, op2, op4);
-                        }
-                    }
-                    break;
-                case "log":
-                    if (typeof op2 !== 'undefined') {
-                        // AND, ORR, EOR, BIC have 3 operands and need result to update
-                        if (typeof op3 !== 'undefined') {
-                            result = this.logical(inst, op2, op3);
-                        }
-                        else if (typeof op1 !== 'undefined') {
-                            result = this.logical(inst, op1, op2);
-                        }
-                        // CMP, CMN, TST, TEQ have 2 operands and don't need the result
-                        else if (typeof op1 !== 'undefined') {
-                            this.logical(inst, op1, op2);
-                        }
-                    }
-                    break;
-                case "cpj":
-                    if (typeof op2 !== 'undefined') {
-                        result = this.copyShiftJump(inst, op2);
-                    }
+            let condition = inst.getCondition();
+            let flags = this.cpu.state.statusRegister.getFlags();
 
+            switch (condition) {
+                case "EQ": if (flags[1]) { break; } return;
+                case "NE": if (!flags[1]) { break; } return;
+                case "HS": case "CS": if (flags[2]) { break; } return;
+                case "LO": case "CC": if (!flags[2]) { break; } return;
+                case "MI": if (flags[0]) { break; } return;
+                case "PL": if (!flags[0]) { break; } return;
+                case "VS": if (flags[3]) { break; } return;
+                case "VC": if (!flags[3]) { break; } return;
+                case "HI": if (flags[2] * Number(!flags[1])) { break; } return;
+                case "LS": if (Number(!flags[2]) + flags[1]) { break; } return;
+                case "GE": if (flags[0] * flags[3] + Number(!flags[0]) * Number(!flags[3])) { break; } return;
+                case "LT": if (flags[0] * Number(!flags[3]) + Number(!flags[0]) * flags[3]) { break; } return;
+                case "GT": if (Number(!flags[1]) * flags[0] * flags[3] +
+                    Number(!flags[1]) * Number(!flags[0]) * Number(!flags[3])) { break; } return;
+                case "LE": if (flags[0] * Number(!flags[3]) + flags[1] + 
+                    Number(!flags[0]) * flags[3]) { break; } return;
+                case "AL": break;
+                case "NV": return;
             }
 
+            let result;
+            let op1, op2, op3, op4;
+            let targetRegister;
+
+            if (inst instanceof ArithmeticInstruction) {
+                let x = inst.getOp1();
+                if (x instanceof RegisterOperand && typeof x !== 'undefined') { targetRegister = x.getIndex() };
+                op1 = this.getOperandValue(inst.getOp1());
+                op2 = this.getOperandValue(inst.getOp2());
+                op3 = this.getOperandValue(inst.getOp3());
+                op4 = this.getOperandValue(inst.getOp4());
+                if (typeof op2 !== 'undefined') {
+                    if (typeof op3 !== 'undefined') {
+                        result = this.arithmetic(inst, op2, op3, op4);
+                    }
+                    else if (typeof op1 !== 'undefined') {
+                        result = this.arithmetic(inst, op1, op2, op4);
+                    }
+                }
+            }
+            else if (inst instanceof LogicInstruction) {
+                let x = inst.getOp1();
+                if (x instanceof RegisterOperand && typeof x !== 'undefined') { targetRegister = x.getIndex() };
+                op1 = this.getOperandValue(inst.getOp1());
+                op2 = this.getOperandValue(inst.getOp2());
+                op3 = this.getOperandValue(inst.getOp3());
+                if (typeof op2 !== 'undefined') {
+                    // AND, ORR, EOR, BIC have 3 operands and need result to update
+                    if (typeof op3 !== 'undefined') {
+                        result = this.logical(inst, op2, op3);
+                    }
+                    else if (typeof op1 !== 'undefined') {
+                        result = this.logical(inst, op1, op2);
+                    }
+                    // CMP, CMN, TST, TEQ have 2 operands and don't need the result
+                    else if (typeof op1 !== 'undefined') {
+                        this.logical(inst, op1, op2);
+                    }
+                }
+            }
+            else if (inst instanceof CopyJumpInstruction) {
+                let x = inst.getOp1();
+                if (x instanceof RegisterOperand && typeof x !== 'undefined') { targetRegister = x.getIndex() };
+                op1 = this.getOperandValue(inst.getOp1());
+                op2 = this.getOperandValue(inst.getOp2());
+                if (typeof op2 !== 'undefined') {
+                    result = this.copyJump(inst, op2);
+                }
+            }
+
+
+
             // update registers
-            if (typeof result !== 'undefined' && typeof op1 !== 'undefined') {
-                newRegisters[op1] = this.setTo32Bit(result);
-                newRegisters[15]+=4;
+            if (typeof result !== 'undefined' && typeof targetRegister !== 'undefined') {
+                newRegisters[targetRegister] = this.setTo32Bit(result);
                 this.cpu.setState({ registers: newRegisters });
             }
             if (inst.getUpdateStatusRegister()) {
@@ -126,12 +166,12 @@ class CodeExecutionEngine {
         return y;
     }
 
-    copyShiftJump(inst: Instruction, b: number): number | undefined {
+    copyJump(inst: Instruction, b: number): number | undefined {
         let y = undefined;
 
         switch (inst.getInstruction()) {
-            case "MOV": break;
-            case "MVN":
+            case "MOV": y = b; break;
+            case "MVN": y = ~b;
         }
 
         return y;
@@ -160,7 +200,7 @@ class CodeExecutionEngine {
         let result;
         let x = this.getOperandValue(shiftOperand.getOperandToShift())
         let shiftAmount = this.getOperandValue(shiftOperand.getShiftAmountOperand());
-        let carry; 
+        let carry;
 
         if (typeof x !== 'undefined' && typeof shiftAmount !== 'undefined') {
             switch (shiftOperand.getShiftType()) {
@@ -188,12 +228,12 @@ class CodeExecutionEngine {
                     break;
             }
         }
-        
+
         if (typeof this.currentInstruction !== 'undefined' && this.currentInstruction.getUpdateStatusRegister() && typeof carry !== 'undefined') {
             this.cpu.state.statusRegister.setC(carry === 0 ? 0 : 1);
         }
 
-        return result;
+        return (typeof result !== 'undefined') ? this.setTo32Bit(result) : result;
     }
 
     setTo32Bit(x: number): number {
