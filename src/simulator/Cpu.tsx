@@ -31,6 +31,7 @@ type CpuState = {
     testOp: string[];
     cond: string;
     S: boolean;
+    tab: number;
 }
 
 class Cpu extends React.Component<any, CpuState> {
@@ -46,7 +47,8 @@ class Cpu extends React.Component<any, CpuState> {
         this.state = {
             registers: initializedRegisters, statusRegister: new StatusRegister(),
             codeExecutionEngine: new CodeExecutionEngine(this), userInput: ".arm\n.text\n.global _start\n_start:\n\tADD r1, r2, r3",
-            terminal: new Terminal(welcomeMessage), mainMemory: new MainMemory(this), testOp: ["r0", "r1", "r2", "r3"], cond: "", S: false
+            terminal: new Terminal(welcomeMessage), mainMemory: new MainMemory(this), testOp: ["r0", "r1", "r2", "r3"], cond: "", S: false,
+            tab: 0
         };
     }
 
@@ -121,7 +123,7 @@ class Cpu extends React.Component<any, CpuState> {
         this.setState({ terminal: this.state.terminal })
     }
 
-    toHex(x: number): String {
+    toHex(x: number): string {
         return ('00000000' + x.toString(16)).slice(-8);
     }
 
@@ -211,22 +213,22 @@ class Cpu extends React.Component<any, CpuState> {
                             }} variant="outlined" color="primary">BIC</Button>
                             <Button onClick={() => {
                                 if (this.checkConditionAndOperands(2)) {
-                                    this.state.mainMemory.addInstruction("CMP", this.state.cond, this.state.S, this.state.testOp[0], this.state.testOp[1], undefined, undefined)
+                                    this.state.mainMemory.addInstruction("CMP", this.state.cond, true, this.state.testOp[0], this.state.testOp[1], undefined, undefined)
                                 }
                             }} variant="outlined" color="primary">CMP</Button>
                             <Button onClick={() => {
                                 if (this.checkConditionAndOperands(2)) {
-                                    this.state.mainMemory.addInstruction("CMN", this.state.cond, this.state.S, this.state.testOp[0], this.state.testOp[1], undefined, undefined)
+                                    this.state.mainMemory.addInstruction("CMN", this.state.cond, true, this.state.testOp[0], this.state.testOp[1], undefined, undefined)
                                 }
                             }} variant="outlined" color="primary">CMN</Button>
                             <Button onClick={() => {
                                 if (this.checkConditionAndOperands(2)) {
-                                    this.state.mainMemory.addInstruction("TST", this.state.cond, this.state.S, this.state.testOp[0], this.state.testOp[1], undefined, undefined)
+                                    this.state.mainMemory.addInstruction("TST", this.state.cond, true, this.state.testOp[0], this.state.testOp[1], undefined, undefined)
                                 }
                             }} variant="outlined" color="primary">TST</Button>
                             <Button onClick={() => {
                                 if (this.checkConditionAndOperands(2)) {
-                                    this.state.mainMemory.addInstruction("TEQ", this.state.cond, this.state.S, this.state.testOp[0], this.state.testOp[1], undefined, undefined)
+                                    this.state.mainMemory.addInstruction("TEQ", this.state.cond, true, this.state.testOp[0], this.state.testOp[1], undefined, undefined)
                                 }
                             }} variant="outlined" color="primary">TEQ</Button>
                         </div>
@@ -276,16 +278,16 @@ class Cpu extends React.Component<any, CpuState> {
                 </Box>
                 <Box width="79.75%" height="100%">
                     <Box height="79.5%" mb="0.5%">
-                        <Tabs height="100%">
+                        <Tabs height="100%" selectedIndex={this.state.tab} onSelect={index => this.setState({ tab: index })}>
                             <TabList className="tab-list-input">
-                                <Tab height="5%">Code</Tab>
+                                <Tab>Code</Tab>
                                 <Tab>Memory</Tab>
                             </TabList>
 
-                            <TabPanel>
+                            <TabPanel style={{height: 'calc(100% - 50px)'}}>
                                 <textarea className="App-userinput" value={this.state.userInput.toString()} onChange={e => this.userInputChange(e)} onKeyDown={e => this.allowTabKey(e)} />
                             </TabPanel>
-                            <TabPanel>
+                            <TabPanel style={{height: 'calc(100% - 50px)'}}>
                                 {this.state.mainMemory.render()}
                             </TabPanel>
                         </Tabs>
@@ -298,6 +300,8 @@ class Cpu extends React.Component<any, CpuState> {
         )
     }
 }
+
+
 
 class Terminal {
     messages: [MessageType, string][];

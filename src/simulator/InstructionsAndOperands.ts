@@ -134,18 +134,24 @@ class RegisterOperand extends Operand {
             case 15: return "pc";
         }
     }
+    toEncoding() {
+        return this.index.toString(2).padStart(4, "0");
+    }
 }
 
 class ImmediateOperand extends Operand {
-    private value: number;
+    private immed8: number;
+    private rotateImmed: number;
 
-    constructor(value: number) {
+    constructor(immed8: number, rotateImmed: number) {
         super();
-        this.value = value;
+        this.immed8 = immed8;
+        this.rotateImmed = rotateImmed;
     }
 
-    getValue() { return this.value; }
-    toString() { return "#" + this.value; }
+    getValue() { return ((this.immed8 >>> this.rotateImmed*2) | (this.immed8 << (32 - this.rotateImmed*2))) >>> 0 }
+    toString() { return "#" + this.getValue(); }
+    toEncoding() {return this.rotateImmed.toString(2).padStart(4, "0") + this.immed8.toString(2).padStart(8, "0")}
 }
 
 class ShiftOperand extends Operand {
@@ -164,4 +170,31 @@ class ShiftOperand extends Operand {
     getShiftType() { return this.shiftType; }
     getShiftAmountOperand() { return this.shiftAmountOperand; }
     toString() { return this.operandToShift.toString() + ", " + this.shiftType + " " + this.shiftAmountOperand.toString(); }
+    toEncoding() {
+        let string = "";
+
+        if (this.shiftAmountOperand instanceof ImmediateOperand) {
+            string += this.shiftAmountOperand.toEncoding().substring(7)
+            string += ShiftTypeEncoding.get(this.shiftType);
+            string += "0";
+        }
+        else if (this.shiftAmountOperand instanceof RegisterOperand) {
+            string += this.shiftAmountOperand.toEncoding();
+            string += "0" + ShiftTypeEncoding.get(this.shiftType) + "1";
+        }
+        
+        if (this.operandToShift instanceof RegisterOperand) {
+            string += this.operandToShift.toEncoding();
+        }
+
+        return string;
+    }
 }
+
+const ShiftTypeEncoding = new Map([
+    ["LSL", "00"],
+    ["ASL", "00"],
+    ["LSR", "01"],
+    ["ASR", "10"],
+    ["ROR", "11"]
+]);

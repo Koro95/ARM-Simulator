@@ -37,11 +37,112 @@
 
 .App-memory {
   background-color: white;
+  height: 102.5%;
+  width: 100%;
+  resize: none;
+  border: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  font-family: monospace;
+}
+
+.App-memory-memorylines {
+  background-color: white;
+  height: 102.5%;
+  width: 100%;
+  resize: none;
+  border: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  font-family: monospace;
+}
+
+.App-memory-header {
+  background-color: white;
   color: black;
+  resize: none;
+  border: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: row;
+  border-bottom: black solid 1px;  ;
+}
+
+.App-memory-header-address {
+  background-color: white;
+  color: black;
+  font-size: 20px;
+  text-align: center;
+  height: 30px;
+  width: 100px;
+  resize: none;
+  border: none;
+  border-right: black solid 1px;
+  font-family: monospace;
+}
+
+.App-memory-header-content {
+  background-color: white;
+  color: black;
+  font-size: 20px;
+  text-align: center;
+  height: 30px;
+  width: 130px;
+  resize: none;
+  border: none;
+  font-family: monospace;
+}
+
+.App-memory-header-instruction {
+  background-color: white;
+  color: black;
+  font-size: 20px;
+  text-align: center;
+  height: 30px;
+  width: 150px;
+  resize: none;
+  border: none;
+  font-family: monospace;
+  padding-right: 25px;
+}
+
+.App-memory-address {
+  background-color: white;
+  color: black;
+  text-align: center;
+  font-size: 15px;
+  width: 100px;
+  margin: 0;
+  padding: 0;
+  border-right: black solid 1px;  
+  min-height: 20px;
+}
+
+.App-memory-content {
+  background-color: white;
+  color: black;
+  text-align: center;
+  font-size: 15px;
+  margin: 0;
+  padding: 0;
+  width: 130px;
+  min-height: 20px;
+}
+
+.App-memory-instruction {
+  background-color: white;
+  color: gray;
   text-align: left;
   font-size: 14px;
   margin: 0;
   padding: 0;
+  padding-left: 20px;
+  min-width: 150px;
+  min-height: 20px;
 }
 
 .App-cpustate {
@@ -127,10 +228,6 @@
   height: 100%;
 }
 
-.react-tabs__tab-panel {
-  height: 92%;
-}
-
 .tab-list-reg {
   font-size: 15px;
   padding: 0;
@@ -144,4 +241,10 @@
   padding: 0;
   padding-bottom: 1px;
   margin: 0;
+  height: 37px;
+}
+
+.Button-goto {
+  margin-right: 200px;
+  height: 25px;
 }
