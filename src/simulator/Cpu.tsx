@@ -1,3 +1,4 @@
+import { test } from '../parser/examples/examples.json'
 import React from "react";
 import InputBase from '@material-ui/core/InputBase';
 import { InputBaseComponentProps } from "@material-ui/core";
@@ -6,12 +7,14 @@ import Button from '@material-ui/core/Button';
 import Checkbox from '@material-ui/core/Checkbox';
 import { Tab, Tabs, TabList, TabPanel } from 'react-tabs';
 import 'react-tabs/style/react-tabs.css';
+import Snackbar from '@material-ui/core/Snackbar';
+import IconButton from '@material-ui/core/IconButton';
 
 import { CodeExecutionEngine } from "./CodeExecutionEngine";
 import { StatusRegister } from "./StatusRegister";
 import { MainMemory } from "./MainMemory";
-
-const parse = require('../parser/parser').parse;
+import { UserInputParser } from './UserInputParser';
+import { Playground } from './Playground';
 
 export { Cpu, MessageType };
 
@@ -28,10 +31,11 @@ type CpuState = {
     userInput: String;
     terminal: Terminal;
     mainMemory: MainMemory;
-    testOp: string[];
-    cond: string;
-    S: boolean;
+    userInputParser: UserInputParser;
+    playground: Playground;
     tab: number;
+    open: boolean;
+    error: string;
 }
 
 class Cpu extends React.Component<any, CpuState> {
@@ -46,9 +50,8 @@ class Cpu extends React.Component<any, CpuState> {
         }
         this.state = {
             registers: initializedRegisters, statusRegister: new StatusRegister(),
-            codeExecutionEngine: new CodeExecutionEngine(this), userInput: ".arm\n.text\n.global _start\n_start:\n\tADD r1, r2, r3",
-            terminal: new Terminal(welcomeMessage), mainMemory: new MainMemory(this), testOp: ["r0", "r1", "r2", "r3"], cond: "", S: false,
-            tab: 0
+            codeExecutionEngine: new CodeExecutionEngine(this), userInput: test, terminal: new Terminal(welcomeMessage), mainMemory: new MainMemory(this),
+            userInputParser: new UserInputParser(this), playground: new Playground(this), tab: 0, open: false, error: ""
         };
     }
 
@@ -92,31 +95,6 @@ class Cpu extends React.Component<any, CpuState> {
         this.setState({ registers: newRegisters });
     }
 
-    testOpChange = (index: number, e: React.ChangeEvent<HTMLTextAreaElement | HTMLInputElement>) => {
-        let newTestOp = [...this.state.testOp];
-        newTestOp[index] = e.currentTarget.value;
-        this.setState({ testOp: newTestOp });
-    }
-
-    checkConditionAndOperands(numOfOperands: number) {
-        let check = true;
-
-        for (let index = 0; index < numOfOperands; index++) {
-            if (this.state.testOp[index] === "") {
-                this.newTerminalMessage(MessageType.Error, "More operands needed!")
-                check = false;
-                break;
-            }
-        }
-
-        if (!["", "EQ", "NE", "HS", "CS", "LO", "CC", "MI", "PL", "VS", "VC", "HI", "LS", "GE", "LT", "GT", "LE", "AL", "NV"].includes(this.state.cond)) {
-            this.newTerminalMessage(MessageType.Error, "Invalid Condition")
-            check = false;
-        }
-
-        return check;
-    }
-
     newTerminalMessage(type: MessageType, message: string) {
         let newMessage = "\n<" + new Date().toLocaleTimeString() + "> " + message;
         this.state.terminal.addMessage(type, newMessage);
@@ -129,7 +107,6 @@ class Cpu extends React.Component<any, CpuState> {
 
     render() {
         const style = { style: { padding: 0, 'padding-left': 10, width: '90px' } } as InputBaseComponentProps;
-        const testOperandsStyle = { style: { padding: 0, 'padding-left': 10, width: '100px', border: 'black solid 1px', 'margin-bottom': 2 } } as InputBaseComponentProps;
 
         return (
             <div className="App-body">
@@ -167,113 +144,27 @@ class Cpu extends React.Component<any, CpuState> {
                     <Box height="25.25%" mb="0.5%" className="App-debugger">
                         <div>N: {this.state.statusRegister.getN()}, Z: {this.state.statusRegister.getZ()}, C: {this.state.statusRegister.getC()}, V: {this.state.statusRegister.getV()}</div>
 
-                        <div>Op1: <InputBase inputProps={testOperandsStyle} value={this.state.testOp[0]} onChange={e => this.testOpChange(0, e)} /> &nbsp;
-                            Op2: <InputBase inputProps={testOperandsStyle} value={this.state.testOp[1]} onChange={e => this.testOpChange(1, e)} /> </div>
-                        <div>Op3: <InputBase inputProps={testOperandsStyle} value={this.state.testOp[2]} onChange={e => this.testOpChange(2, e)} /> &nbsp;
-                            Op4: <InputBase inputProps={testOperandsStyle} value={this.state.testOp[3]} onChange={e => this.testOpChange(3, e)} /> </div>
-                        <div>Cond: <InputBase inputProps={testOperandsStyle} value={this.state.cond} onChange={e => this.setState({ cond: e.currentTarget.value })} /> &nbsp;
-                            S: <Checkbox checked={this.state.S} onChange={e => this.setState({ S: e.currentTarget.checked })} color="primary" /> </div>
                         <Button onClick={() => this.state.codeExecutionEngine.executeNextInstruction()} variant="outlined" color="primary">NextInst</Button> &nbsp;
-                        <Button onClick={() => this.state.mainMemory.compile()} variant="outlined" color="primary">Compile Memory</Button>
+                        <Button onClick={() => { this.state.userInputParser.parseUserInput() }} variant="outlined" color="primary">Compile Memory</Button>
+                        <Snackbar
+                            anchorOrigin={{
+                                vertical: 'bottom',
+                                horizontal: 'left',
+                            }}
+                            open={this.state.open}
+                            autoHideDuration={6000}
+                            message={this.state.error}
+                            action={
+                                <React.Fragment>
+                                  <IconButton size="small" aria-label="close" color="inherit" onClick={() => this.setState({ open: false })}>
+                                    x
+                                  </IconButton>
+                                </React.Fragment>
+                              }
+                        />
                     </Box>
                     <Box height="19.75%" className="App-options">
                         <div>Options</div>
-                        <div>
-                            <Button onClick={() => {
-                                if (this.checkConditionAndOperands(2)) {
-                                    this.state.mainMemory.addInstruction("MOV", this.state.cond, this.state.S, this.state.testOp[0], this.state.testOp[1], undefined, undefined)
-                                }
-                            }} variant="outlined" color="primary">MOV</Button>
-                            <Button onClick={() => {
-                                if (this.checkConditionAndOperands(2)) {
-                                    this.state.mainMemory.addInstruction("MVN", this.state.cond, this.state.S, this.state.testOp[0], this.state.testOp[1], undefined, undefined)
-                                }
-                            }} variant="outlined" color="primary">MVN</Button>
-                        </div>
-                        <div>
-                            <Button onClick={() => {
-                                if (this.checkConditionAndOperands(2)) {
-                                    this.state.mainMemory.addInstruction("AND", this.state.cond, this.state.S, this.state.testOp[0], this.state.testOp[1], this.state.testOp[2], undefined)
-                                }
-                            }} variant="outlined" color="primary">AND</Button>
-                            <Button onClick={() => {
-                                if (this.checkConditionAndOperands(2)) {
-                                    this.state.mainMemory.addInstruction("ORR", this.state.cond, this.state.S, this.state.testOp[0], this.state.testOp[1], this.state.testOp[2], undefined)
-                                }
-                            }} variant="outlined" color="primary">ORR</Button>
-                            <Button onClick={() => {
-                                if (this.checkConditionAndOperands(2)) {
-                                    this.state.mainMemory.addInstruction("EOR", this.state.cond, this.state.S, this.state.testOp[0], this.state.testOp[1], this.state.testOp[2], undefined)
-                                }
-                            }} variant="outlined" color="primary">EOR</Button>
-                            <Button onClick={() => {
-                                if (this.checkConditionAndOperands(2)) {
-                                    this.state.mainMemory.addInstruction("BIC", this.state.cond, this.state.S, this.state.testOp[0], this.state.testOp[1], this.state.testOp[2], undefined)
-                                }
-                            }} variant="outlined" color="primary">BIC</Button>
-                            <Button onClick={() => {
-                                if (this.checkConditionAndOperands(2)) {
-                                    this.state.mainMemory.addInstruction("CMP", this.state.cond, true, this.state.testOp[0], this.state.testOp[1], undefined, undefined)
-                                }
-                            }} variant="outlined" color="primary">CMP</Button>
-                            <Button onClick={() => {
-                                if (this.checkConditionAndOperands(2)) {
-                                    this.state.mainMemory.addInstruction("CMN", this.state.cond, true, this.state.testOp[0], this.state.testOp[1], undefined, undefined)
-                                }
-                            }} variant="outlined" color="primary">CMN</Button>
-                            <Button onClick={() => {
-                                if (this.checkConditionAndOperands(2)) {
-                                    this.state.mainMemory.addInstruction("TST", this.state.cond, true, this.state.testOp[0], this.state.testOp[1], undefined, undefined)
-                                }
-                            }} variant="outlined" color="primary">TST</Button>
-                            <Button onClick={() => {
-                                if (this.checkConditionAndOperands(2)) {
-                                    this.state.mainMemory.addInstruction("TEQ", this.state.cond, true, this.state.testOp[0], this.state.testOp[1], undefined, undefined)
-                                }
-                            }} variant="outlined" color="primary">TEQ</Button>
-                        </div>
-                        <div>
-                            <Button onClick={() => {
-                                if (this.checkConditionAndOperands(2)) {
-                                    this.state.mainMemory.addInstruction("ADD", this.state.cond, this.state.S, this.state.testOp[0], this.state.testOp[1], this.state.testOp[2], undefined)
-                                }
-                            }} variant="outlined" color="primary">ADD</Button>
-                            <Button onClick={() => {
-                                if (this.checkConditionAndOperands(2)) {
-                                    this.state.mainMemory.addInstruction("ADC", this.state.cond, this.state.S, this.state.testOp[0], this.state.testOp[1], this.state.testOp[2], undefined)
-                                }
-                            }} variant="outlined" color="primary">ADC</Button>
-                            <Button onClick={() => {
-                                if (this.checkConditionAndOperands(2)) {
-                                    this.state.mainMemory.addInstruction("SUB", this.state.cond, this.state.S, this.state.testOp[0], this.state.testOp[1], this.state.testOp[2], undefined)
-                                }
-                            }} variant="outlined" color="primary">SUB</Button>
-                            <Button onClick={() => {
-                                if (this.checkConditionAndOperands(2)) {
-                                    this.state.mainMemory.addInstruction("SBC", this.state.cond, this.state.S, this.state.testOp[0], this.state.testOp[1], this.state.testOp[2], undefined)
-                                }
-                            }} variant="outlined" color="primary">SBC</Button>
-                            <Button onClick={() => {
-                                if (this.checkConditionAndOperands(2)) {
-                                    this.state.mainMemory.addInstruction("RSB", this.state.cond, this.state.S, this.state.testOp[0], this.state.testOp[1], this.state.testOp[2], undefined)
-                                }
-                            }} variant="outlined" color="primary">RSB</Button>
-                            <Button onClick={() => {
-                                if (this.checkConditionAndOperands(2)) {
-                                    this.state.mainMemory.addInstruction("RSC", this.state.cond, this.state.S, this.state.testOp[0], this.state.testOp[1], this.state.testOp[2], undefined)
-                                }
-                            }} variant="outlined" color="primary">RSC</Button>
-                            <Button onClick={() => {
-                                if (this.checkConditionAndOperands(2)) {
-                                    this.state.mainMemory.addInstruction("MUL", this.state.cond, this.state.S, this.state.testOp[0], this.state.testOp[1], this.state.testOp[2], undefined)
-                                }
-                            }} variant="outlined" color="primary">MUL</Button>
-                            <Button onClick={() => {
-                                if (this.checkConditionAndOperands(4)) {
-                                    this.state.mainMemory.addInstruction("MLA", this.state.cond, this.state.S, this.state.testOp[0], this.state.testOp[1], this.state.testOp[2], this.state.testOp[3])
-                                }
-                            }} variant="outlined" color="primary">MLA</Button>
-                        </div>
                     </Box>
                 </Box>
                 <Box width="79.75%" height="100%">
@@ -282,13 +173,17 @@ class Cpu extends React.Component<any, CpuState> {
                             <TabList className="tab-list-input">
                                 <Tab>Code</Tab>
                                 <Tab>Memory</Tab>
+                                <Tab>Playground</Tab>
                             </TabList>
 
-                            <TabPanel style={{height: 'calc(100% - 50px)'}}>
+                            <TabPanel style={{ height: 'calc(100% - 50px)' }}>
                                 <textarea className="App-userinput" value={this.state.userInput.toString()} onChange={e => this.userInputChange(e)} onKeyDown={e => this.allowTabKey(e)} />
                             </TabPanel>
-                            <TabPanel style={{height: 'calc(100% - 50px)'}}>
+                            <TabPanel style={{ height: 'calc(100% - 50px)' }}>
                                 {this.state.mainMemory.render()}
+                            </TabPanel>
+                            <TabPanel style={{ height: 'calc(100% - 50px)' }}>
+                                {this.state.playground.render()}
                             </TabPanel>
                         </Tabs>
                     </Box>

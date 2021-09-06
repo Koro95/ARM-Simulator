@@ -1,4 +1,4 @@
-export { Instruction, ArithmeticInstruction, LogicInstruction, CopyJumpInstruction, Operand, RegisterOperand, ImmediateOperand, ShiftOperand }
+export { Instruction, ArithmeticInstruction, LogicInstruction, CopyJumpInstruction, Operand, RegisterOperand, ImmediateOperand, ShiftOperand, BranchOperand }
 
 class Instruction {
     private instruction: string;
@@ -8,16 +8,20 @@ class Instruction {
     constructor(instruction: string,
         condition: string,
         updateStatusRegister: boolean) {
-            this.instruction = instruction;
-            this.condition = condition;
-            this.updateStatusRegister = updateStatusRegister;
+        this.instruction = instruction;
+        this.condition = condition;
+        this.updateStatusRegister = updateStatusRegister;
     }
 
     getInstruction() { return this.instruction; }
     getCondition() { return this.condition; }
     getUpdateStatusRegister() { return this.updateStatusRegister; }
 
-    toString() { return this.instruction + this.condition + (this.updateStatusRegister ? "S" : "") }
+    toString() {
+        let string = this.instruction + this.condition;
+        if (!["cmp", "cmn", "tst", "teq"].includes(this.instruction)) {string += this.updateStatusRegister ? "s" : "";}
+        return string;
+    }
 }
 
 class ArithmeticInstruction extends Instruction {
@@ -33,11 +37,11 @@ class ArithmeticInstruction extends Instruction {
         op3: Operand | undefined,
         op4: Operand | undefined,
         updateStatusRegister: boolean) {
-            super(instruction, condition, updateStatusRegister);
-            this.op1 = op1;
-            this.op2 = op2;
-            this.op3 = op3;
-            this.op4 = op4;
+        super(instruction, condition, updateStatusRegister);
+        this.op1 = op1;
+        this.op2 = op2;
+        this.op3 = op3;
+        this.op4 = op4;
     }
 
     getOp1() { return this.op1; }
@@ -47,10 +51,10 @@ class ArithmeticInstruction extends Instruction {
 
     toString() {
         let string = super.toString();
-        if (typeof this.op1 !== 'undefined') { string += " " + this.op1.toString()};
-        if (typeof this.op2 !== 'undefined') { string += ", " + this.op2.toString()};
-        if (typeof this.op3 !== 'undefined') { string += ", " + this.op3.toString()};
-        if (typeof this.op4 !== 'undefined') { string += ", " + this.op4.toString()};
+        if (typeof this.op1 !== 'undefined') { string += " " + this.op1.toString() };
+        if (typeof this.op2 !== 'undefined') { string += ", " + this.op2.toString() };
+        if (typeof this.op3 !== 'undefined') { string += ", " + this.op3.toString() };
+        if (typeof this.op4 !== 'undefined') { string += ", " + this.op4.toString() };
 
         return string;
     }
@@ -67,10 +71,10 @@ class LogicInstruction extends Instruction {
         op2: Operand | undefined,
         op3: Operand | undefined,
         updateStatusRegister: boolean) {
-            super(instruction, condition, updateStatusRegister);
-            this.op1 = op1;
-            this.op2 = op2;
-            this.op3 = op3;
+        super(instruction, condition, updateStatusRegister);
+        this.op1 = op1;
+        this.op2 = op2;
+        this.op3 = op3;
     }
 
     getOp1() { return this.op1; }
@@ -79,9 +83,9 @@ class LogicInstruction extends Instruction {
 
     toString() {
         let string = super.toString();
-        if (typeof this.op1 !== 'undefined') { string += " " + this.op1.toString()};
-        if (typeof this.op2 !== 'undefined') { string += ", " + this.op2.toString()};
-        if (typeof this.op3 !== 'undefined') { string += ", " + this.op3.toString()};
+        if (typeof this.op1 !== 'undefined') { string += " " + this.op1.toString() };
+        if (typeof this.op2 !== 'undefined') { string += ", " + this.op2.toString() };
+        if (typeof this.op3 !== 'undefined') { string += ", " + this.op3.toString() };
 
         return string;
     }
@@ -96,9 +100,9 @@ class CopyJumpInstruction extends Instruction {
         op1: Operand | undefined,
         op2: Operand | undefined,
         updateStatusRegister: boolean) {
-            super(instruction, condition, updateStatusRegister);
-            this.op1 = op1;
-            this.op2 = op2;
+        super(instruction, condition, updateStatusRegister);
+        this.op1 = op1;
+        this.op2 = op2;
     }
 
     getOp1() { return this.op1; }
@@ -106,14 +110,14 @@ class CopyJumpInstruction extends Instruction {
 
     toString() {
         let string = super.toString();
-        if (typeof this.op1 !== 'undefined') { string += " " + this.op1.toString()};
-        if (typeof this.op2 !== 'undefined') { string += ", " + this.op2.toString()};
+        if (typeof this.op1 !== 'undefined') { string += " " + this.op1.toString() };
+        if (typeof this.op2 !== 'undefined') { string += ", " + this.op2.toString() };
 
         return string;
     }
 }
 
-class Operand {}
+class Operand { }
 
 class RegisterOperand extends Operand {
     private index: number;
@@ -124,7 +128,7 @@ class RegisterOperand extends Operand {
     }
 
     getIndex() { return this.index; }
-    toString() { 
+    toString() {
         if (this.index < 13) {
             return "r" + this.index;
         }
@@ -142,16 +146,25 @@ class RegisterOperand extends Operand {
 class ImmediateOperand extends Operand {
     private immed8: number;
     private rotateImmed: number;
+    private base: number;
 
-    constructor(immed8: number, rotateImmed: number) {
+    constructor(immed8: number, rotateImmed: number, base: number) {
         super();
         this.immed8 = immed8;
         this.rotateImmed = rotateImmed;
+        this.base = base;
     }
 
-    getValue() { return ((this.immed8 >>> this.rotateImmed*2) | (this.immed8 << (32 - this.rotateImmed*2))) >>> 0 }
-    toString() { return "#" + this.getValue(); }
-    toEncoding() {return this.rotateImmed.toString(2).padStart(4, "0") + this.immed8.toString(2).padStart(8, "0")}
+    getValue() { return ((this.immed8 >>> this.rotateImmed * 2) | (this.immed8 << (32 - this.rotateImmed * 2))) >>> 0 }
+    toString() {
+        let numberString = "#"
+        switch (this.base) {
+            case 16: numberString += "0x"; break;
+            case 2: numberString += "0b"; break;
+        }
+        return numberString +  this.getValue().toString(this.base);
+    }
+    toEncoding() { return this.rotateImmed.toString(2).padStart(4, "0") + this.immed8.toString(2).padStart(8, "0") }
 }
 
 class ShiftOperand extends Operand {
@@ -182,7 +195,7 @@ class ShiftOperand extends Operand {
             string += this.shiftAmountOperand.toEncoding();
             string += "0" + ShiftTypeEncoding.get(this.shiftType) + "1";
         }
-        
+
         if (this.operandToShift instanceof RegisterOperand) {
             string += this.operandToShift.toEncoding();
         }
@@ -191,10 +204,21 @@ class ShiftOperand extends Operand {
     }
 }
 
+class BranchOperand extends Operand {
+    private label: string;
+
+    constructor(label: string) {
+        super();
+        this.label = label;
+    }
+
+    toString() { return this.label };
+}
+
 const ShiftTypeEncoding = new Map([
-    ["LSL", "00"],
-    ["ASL", "00"],
-    ["LSR", "01"],
-    ["ASR", "10"],
-    ["ROR", "11"]
+    ["lsl", "00"],
+    ["asl", "00"],
+    ["lsr", "01"],
+    ["asr", "10"],
+    ["ror", "11"]
 ]);

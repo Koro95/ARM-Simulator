@@ -4,14 +4,17 @@ import InputBase from '@material-ui/core/InputBase';
 import { InputBaseComponentProps } from "@material-ui/core";
 import { positionValues, Scrollbars } from 'react-custom-scrollbars-2';
 import { Cpu, MessageType } from "./Cpu";
-import { Instruction, ArithmeticInstruction, LogicInstruction, CopyJumpInstruction, Operand, RegisterOperand, ImmediateOperand, ShiftOperand } from "./InstructionsAndOperands";
+import { InstructionEncoder } from "./InstructionEncoder";
+import { Instruction, ArithmeticInstruction, LogicInstruction, CopyJumpInstruction, Operand, RegisterOperand, ImmediateOperand, ShiftOperand, BranchOperand } from "./InstructionsAndOperands";
 
 export { MainMemory };
 
 class MainMemory {
     cpu: Cpu;
+    instructionEncoder: InstructionEncoder;
     memoryLines: Map<number, MemoryLine>;
-    memoryString: string;
+    labelToAddress: Map<string, number>;
+    addressToLabel: Map<number, string>;
     scrollRef: React.RefObject<Scrollbars>;
     scrollRefTop: React.RefObject<any>;
     scrollRefMid: React.RefObject<any>;
@@ -23,8 +26,10 @@ class MainMemory {
 
     constructor(cpu: Cpu) {
         this.cpu = cpu;
+        this.instructionEncoder = new InstructionEncoder(this);
         this.memoryLines = new Map();
-        this.memoryString = "";
+        this.labelToAddress = new Map();
+        this.addressToLabel = new Map();
         this.scrollRef = React.createRef();
         this.scrollRefTop = React.createRef();
         this.scrollRefMid = React.createRef();
@@ -37,8 +42,22 @@ class MainMemory {
         this.setScroll = this.setScroll.bind(this);
     }
 
+    resetMemory() {
+        this.memoryLines = new Map();
+        this.labelToAddress = new Map();
+        this.addressToLabel = new Map();
+        this.memoryPosition = 0x00000000;
+        this.memoryPositionFocus = this.cpu.toHex(this.memoryPosition);
+        this.goto = 0x00000000;
+
+        let newRegisters = [...this.cpu.state.registers];
+        newRegisters[15] = 0;
+        this.cpu.setState({ registers: newRegisters });
+
+    }
+
     addInstruction(instruction: string, condition: string, updateStatusRegister: boolean,
-        op1: string | undefined, op2: string | undefined, op3: string | undefined, op4: string | undefined) {
+        op1: string | undefined, op2: string | undefined, op3: string | undefined, op4: string | undefined): boolean {
 
         let stringOperands = [op1, op2, op3, op4]
         let operands: (Operand | undefined)[] = [];
@@ -47,9 +66,14 @@ class MainMemory {
         stringOperands.forEach(op => {
             let newOperand;
             if (typeof op !== 'undefined' && op !== "") {
-                newOperand = this.addOperand(op);
-                if (typeof newOperand === 'undefined') {
-                    invalidOperands.push(op);
+                if (["b", "bl"].includes(instruction) && typeof this.labelToAddress.get(op) !== 'undefined') {
+                    newOperand = new BranchOperand(op);
+                }
+                else {
+                    newOperand = this.addOperand(op);
+                    if (typeof newOperand === 'undefined') {
+                        invalidOperands.push(op);
+                    }
                 }
             }
             operands.push(newOperand)
@@ -59,18 +83,18 @@ class MainMemory {
             invalidOperands.forEach(op => {
                 this.cpu.newTerminalMessage(MessageType.Error, op + " is an invalind operand!");
             });
-            return;
+            return false;
         }
 
         let newInstruction;
 
-        if (["ADD", "ADC", "SUB", "SBC", "RSB", "RSC", "MUL", "MLA"].includes(instruction)) {
+        if (["add", "adc", "sub", "sbc", "rsb", "rsc", "mul", "mla"].includes(instruction)) {
             newInstruction = new ArithmeticInstruction(instruction, condition, operands[0], operands[1], operands[2], operands[3], updateStatusRegister);
         }
-        else if (["AND", "ORR", "EOR", "BIC", "CMP", "CMN", "TST", "TEQ"].includes(instruction)) {
+        else if (["and", "orr", "eor", "bic", "cmp", "cmn", "tst", "teq"].includes(instruction)) {
             newInstruction = new LogicInstruction(instruction, condition, operands[0], operands[1], operands[2], updateStatusRegister);
         }
-        else if (["MOV", "MVN", "B", "BL"].includes(instruction)) {
+        else if (["mov", "mvn", "b", "bl"].includes(instruction)) {
             newInstruction = new CopyJumpInstruction(instruction, condition, operands[0], operands[1], updateStatusRegister);
         }
 
@@ -79,8 +103,25 @@ class MainMemory {
         }
         else {
             this.cpu.newTerminalMessage(MessageType.Error, instruction + " is an invalid instruction!");
-            return;
+            return false;
         }
+        return true;
+    }
+
+    addLabel(address: number, label: string): boolean {
+
+        if (typeof this.labelToAddress.get(label) !== 'undefined') {
+            this.cpu.newTerminalMessage(MessageType.Error, label + " already exists!");
+            return false;
+        }
+        else if (typeof this.addressToLabel.get(address) !== 'undefined') {
+            this.cpu.newTerminalMessage(MessageType.Error, this.cpu.toHex(address) + " already has a label!");
+            return false;
+        }
+        this.labelToAddress.set(label, address);
+        this.addressToLabel.set(address, label);
+
+        return true;
     }
 
     addOperand(op: string): Operand | undefined {
@@ -97,7 +138,6 @@ class MainMemory {
         // case op = ShiftOperand
         if (opParts.length > 1) {
             let shiftParts = opParts[1].split(/[ ]+/);
-            this.cpu.newTerminalMessage(MessageType.Text, shiftParts[0]);
 
             // invalid or nested ShiftOperand not allowed
             let operand2 = this.checkValidOperand(shiftParts[1])
@@ -120,8 +160,8 @@ class MainMemory {
             case "pc": return new RegisterOperand(15);
         }
 
-        let operandType = op.substr(0, 1);
-        let operandValue = Number(op.substr(1));
+        let operandType = op.substring(0, 1);
+        let operandValue = Number(op.substring(1));
 
         if (isNaN(operandValue)) {
             return undefined;
@@ -135,215 +175,29 @@ class MainMemory {
                 break;
             case "#":
                 let mask = 0xffffff00
+                let base = 10;
+                let baseString = op.substring(1,3);
+                switch (baseString) {
+                    case "0x": base = 16; break;
+                    case "0b": base = 2; break;
+                }
+
                 for (let i = 0; i < 16; i++) {
-                    if (((mask & operandValue) === 0) || ((mask & ~operandValue) === 0)) {
+                    if ((mask & operandValue) === 0) {
                         let backShift = 32 - 2 * i;
                         let immed8 = ((operandValue >>> backShift) | (operandValue << (32 - backShift))) >>> 0
-                        return new ImmediateOperand(immed8, i);
+                        return new ImmediateOperand(immed8, i, base);
+                    }
+                    if ((mask & ~operandValue) === 0) {
+                        let backShift = 32 - 2 * i;
+                        let immed8 = ((~operandValue >>> backShift) | (~operandValue << (32 - backShift))) >>> 0
+                        return new ImmediateOperand(immed8, i, base);
                     }
                     mask = ((mask >>> 2) | (mask << (32 - 2))) >>> 0;
                 }
         }
 
         return undefined;
-    }
-
-    // TODO bit 25=0, 4=1 and 7=1 -> extended instruction
-    toEncoding(inst: Instruction): string {
-        let encoding = "";
-        encoding += ConditionEncoding.get(inst.getCondition());
-
-        if (inst instanceof ArithmeticInstruction) {
-            encoding += this.toEncodingArithmeticInstruction(inst);
-        }
-        else if (inst instanceof LogicInstruction) {
-            encoding += this.toEncodingLogicInstruction(inst);
-        }
-        else if (inst instanceof CopyJumpInstruction) {
-            encoding += this.toEncodingCopyJumpInstruction(inst);
-        }
-
-        return parseInt(encoding, 2).toString(16).padStart(8, "0");
-    }
-
-    toEncodingArithmeticInstruction(inst: ArithmeticInstruction): string {
-        let encoding = "00"
-
-        if (["MLA", "MUL"].includes(inst.getInstruction())) {
-            encoding += "0";
-        }
-        else {
-            // Rules for bit 25 (Immediate bit):
-            // ARM Reference Manual (Issue I - 2005), Section A5.1.1 Encoding
-
-            // if op3 undefined, op1 used for first two operands and op2 for third operand
-            let op = inst.getOp3();
-            if (typeof op === 'undefined') { op = inst.getOp2() }
-
-            op instanceof ImmediateOperand ? encoding += "1" : encoding += "0";
-        }
-
-        encoding += InstructionEncoding.get(inst.getInstruction());
-
-        inst.getUpdateStatusRegister() ? encoding += "1" : encoding += "0";
-
-        if (["MLA", "MUL"].includes(inst.getInstruction())) {
-            let operands = [inst.getOp1(), inst.getOp4(), inst.getOp3()]
-
-            operands.forEach(op => {
-                if (op instanceof RegisterOperand) {
-                    encoding += op.toEncoding();
-                }
-                else {
-                    encoding += "0000";
-                }
-            })
-
-            encoding += "1001";
-
-            let op = inst.getOp2();
-            if (op instanceof RegisterOperand) {
-                encoding += op.toEncoding();
-            }
-
-        }
-        else {
-            let op1 = inst.getOp1();
-            let op2 = inst.getOp2();
-            let shifterOperand = inst.getOp3();
-
-            // first two operands
-            if (typeof op1 !== 'undefined' && op1 instanceof RegisterOperand) {
-                if (typeof shifterOperand === 'undefined') {
-                    encoding += op1.toEncoding();
-                }
-                else if (typeof op2 !== 'undefined' && op2 instanceof RegisterOperand) {
-                    encoding += op2.toEncoding();
-                }
-                encoding += op1.toEncoding();
-            }
-
-            //shifter operand
-            if (typeof shifterOperand === 'undefined') { shifterOperand = op2; }
-
-            if (shifterOperand instanceof RegisterOperand) {
-                encoding += shifterOperand.toEncoding().padStart(12, "0");
-            }
-            else if (shifterOperand instanceof ImmediateOperand) {
-                encoding += shifterOperand.toEncoding();
-            }
-            else if (shifterOperand instanceof ShiftOperand) {
-                encoding += shifterOperand.toEncoding();
-            }
-        }
-
-        return encoding;
-    }
-
-    toEncodingLogicInstruction(inst: LogicInstruction): string {
-        let encoding = "00"
-
-        // Rules for bit 25 (Immediate bit):
-        // ARM Reference Manual (Issue I - 2005), Section A5.1.1 Encoding
-
-        // if op3 undefined, op1 used for first two operands and op2 for third operand
-        let op = inst.getOp3();
-        if (typeof op === 'undefined') { op = inst.getOp2() }
-
-        op instanceof ImmediateOperand ? encoding += "1" : encoding += "0";
-
-        encoding += InstructionEncoding.get(inst.getInstruction());
-
-        inst.getUpdateStatusRegister() ? encoding += "1" : encoding += "0";
-
-        if (["AND", "BIC", "EOR", "ORR"].includes(inst.getInstruction())) {
-            let op1 = inst.getOp1();
-            let op2 = inst.getOp2();
-            let shifterOperand = inst.getOp3();
-
-            // first two operands
-            if (typeof op1 !== 'undefined' && op1 instanceof RegisterOperand) {
-                if (typeof shifterOperand === 'undefined') {
-                    encoding += op1.toEncoding();
-                }
-                else if (typeof op2 !== 'undefined' && op2 instanceof RegisterOperand) {
-                    encoding += op2.toEncoding();
-                }
-                encoding += op1.toEncoding();
-            }
-
-            //shifter operand
-            if (typeof shifterOperand === 'undefined') { shifterOperand = op2; }
-
-            if (shifterOperand instanceof RegisterOperand) {
-                encoding += shifterOperand.toEncoding().padStart(12, "0");
-            }
-            else if (shifterOperand instanceof ImmediateOperand) {
-                encoding += shifterOperand.toEncoding();
-            }
-            else if (shifterOperand instanceof ShiftOperand) {
-                encoding += shifterOperand.toEncoding();
-            }
-
-        }
-        else {
-            let op1 = inst.getOp1();
-            let shifterOperand = inst.getOp2();
-
-            // first two operands
-            if (typeof op1 !== 'undefined' && op1 instanceof RegisterOperand) {
-                encoding += op1.toEncoding();
-            }
-
-            encoding += "0000"
-
-            //shifter operand
-            if (shifterOperand instanceof RegisterOperand) {
-                encoding += shifterOperand.toEncoding().padStart(12, "0");
-            }
-            else if (shifterOperand instanceof ImmediateOperand) {
-                encoding += shifterOperand.toEncoding();
-            }
-            else if (shifterOperand instanceof ShiftOperand) {
-                encoding += shifterOperand.toEncoding();
-            }
-        }
-
-        return encoding;
-    }
-
-    toEncodingCopyJumpInstruction(inst: CopyJumpInstruction): string {
-        let encoding = "00"
-
-        // Rules for bit 25 (Immediate bit):
-        // ARM Reference Manual (Issue I - 2005), Section A5.1.1 Encoding
-        let op1 = inst.getOp1();
-        let shifterOperand = inst.getOp2();
-
-        shifterOperand instanceof ImmediateOperand ? encoding += "1" : encoding += "0";
-
-        encoding += InstructionEncoding.get(inst.getInstruction());
-
-        inst.getUpdateStatusRegister() ? encoding += "1" : encoding += "0";
-
-        encoding += "0000"
-
-        if (typeof op1 !== 'undefined' && op1 instanceof RegisterOperand) {
-            encoding += op1.toEncoding();
-        }
-
-        //shifter operand
-        if (shifterOperand instanceof RegisterOperand) {
-            encoding += shifterOperand.toEncoding().padStart(12, "0");
-        }
-        else if (shifterOperand instanceof ImmediateOperand) {
-            encoding += shifterOperand.toEncoding();
-        }
-        else if (shifterOperand instanceof ShiftOperand) {
-            encoding += shifterOperand.toEncoding();
-        }
-
-        return encoding;
     }
 
     gotoChange = (e: React.ChangeEvent<HTMLTextAreaElement | HTMLInputElement>) => {
@@ -356,7 +210,6 @@ class MainMemory {
         this.memoryPositionFocus = this.cpu.toHex(this.memoryPosition);
         this.compile();
         if (this.scrollRefTop.current !== null) {
-            console.log(this.scrollRefTop.current.textContent)
             this.scrollRefTop.current.scrollIntoView(true);
         }
     }
@@ -375,7 +228,7 @@ class MainMemory {
             let content = this.memoryLines.get(address);
             if (typeof content !== 'undefined') {
                 let instruction = content.getContent();
-                encoding += this.toEncoding(instruction);
+                encoding += this.instructionEncoder.toEncoding(instruction, address);
                 instructionString += instruction.toString();
             }
             else {
@@ -401,42 +254,71 @@ class MainMemory {
                 </div>
                 <Scrollbars className="App-memory-memorylines" ref={this.scrollRef} onScrollFrame={this.setScroll}>
                     <div key="memory" className="App-memory-memorylines">
-                        <div key="address">
-                            {
-                                items.map((element, i) => {
-                                    let address = element[0];
+                        {
+                            items.map((element, i) => {
+                                let address = element[0];
+                                let label = this.addressToLabel.get(parseInt(address, 16));
+                                let labelDiv;
 
-                                    if (i === 0) {
-                                        return <div ref={this.scrollRefTop} key={i.toString()} className="App-memory-address"> {address} </div>
-                                    }
-                                    else if (i === this.preloadedMemoryLines - 1) {
-                                        return <div ref={this.scrollRefBot} key={i.toString()} className="App-memory-address"> {address} </div>
-                                    }
-                                    else if (address === this.memoryPositionFocus) {
-                                        return <div ref={this.scrollRefMid} key={i.toString()} className="App-memory-address"> {address} </div>
-                                    }
+                                if (typeof label !== 'undefined') {
+                                    labelDiv = <div key={"label" + i.toString()} className="App-memory-memoryline-label"> {label + ":"} </div>;
+                                }
 
-                                    return <div key={i.toString()} className="App-memory-address"> {address} </div>
-                                })
+                                let addressDiv = <div key={i.toString()} className="App-memory-address"> {address} </div>
+                                let contentDiv = <div key={"content" + i.toString()} className="App-memory-content"> {element[1]} </div>;
+                                let instructionDiv = <div key={"instrcution" + i.toString()} className="App-memory-instruction"> {element[2]} </div>;
 
-                            }
-                        </div>
-                        <div key="encoding">
-                            {
-                                items.map((element, i) => {
-                                    return <div key={i.toString()} className="App-memory-content"> {element[1]} </div>
-                                })
+                                let memorylineDiv;
+                                if (i === 0) {
+                                    memorylineDiv = <React.Fragment><div ref={this.scrollRefTop} className="App-memory-memoryline">
+                                        {labelDiv}
+                                        <div className="App-memory-memoryline-content">
+                                            {addressDiv}
+                                            {contentDiv}
+                                            {instructionDiv}
+                                        </div>
+                                    </div></React.Fragment>;
+                                }
+                                else if (i === this.preloadedMemoryLines - 1) {
+                                    memorylineDiv = <React.Fragment><div ref={this.scrollRefBot} className="App-memory-memoryline">
+                                        {labelDiv}
+                                        <div className="App-memory-memoryline-content">
+                                            {addressDiv}
+                                            {contentDiv}
+                                            {instructionDiv}
+                                        </div>
+                                    </div></React.Fragment>;
+                                }
+                                else if (address === this.memoryPositionFocus) {
+                                    memorylineDiv = <React.Fragment><div ref={this.scrollRefMid} className="App-memory-memoryline">
+                                        {labelDiv}
+                                        <div className="App-memory-memoryline-content">
+                                            {addressDiv}
+                                            {contentDiv}
+                                            {instructionDiv}
+                                        </div>
+                                    </div></React.Fragment>;
+                                }
+                                else {
+                                    memorylineDiv = <React.Fragment><div className="App-memory-memoryline">
+                                        {labelDiv}
+                                        <div className="App-memory-memoryline-content">
+                                            {addressDiv}
+                                            {contentDiv}
+                                            {instructionDiv}
+                                        </div>
+                                    </div></React.Fragment>;
+                                }
 
-                            }
-                        </div>
-                        <div key="instruction">
-                            {
-                                items.map((element, i) => {
-                                    return <div key={i.toString()} className="App-memory-instruction"> {element[2]} </div>
-                                })
+                                if (parseInt(address, 16) === this.cpu.state.registers[15]) {
+                                    return <div className="App-memory-memoryline-highlight"> {memorylineDiv} </div>
+                                }
 
-                            }
-                        </div>
+                                return memorylineDiv;
+                            })
+
+                        }
+
                     </div>
                 </Scrollbars>
             </div>
@@ -448,7 +330,7 @@ class MainMemory {
         let newLines = Math.floor(this.preloadedMemoryLines / 2);
 
         if (top === 0) {
-            this.memoryPositionFocus = this.scrollRefTop.current.textContent.substring(1, 9);
+            this.memoryPositionFocus = this.scrollRefTop.current.lastElementChild.firstElementChild.textContent.substring(1, 9);
             this.memoryPosition -= newLines * 4;
             this.compile();
             if (this.scrollRefMid.current !== null) {
@@ -456,7 +338,7 @@ class MainMemory {
             }
         }
         else if (top === 1) {
-            this.memoryPositionFocus = this.scrollRefBot.current.textContent.substring(1, 9);
+            this.memoryPositionFocus = this.scrollRefBot.current.lastElementChild.firstElementChild.textContent.substring(1, 9);
             this.memoryPosition += newLines * 4;
             this.compile();
             if (this.scrollRefMid.current !== null) {
@@ -482,46 +364,3 @@ class MemoryLine {
     getContent() { return this.content };
     getLabel() { return this.label };
 }
-
-const ConditionEncoding = new Map([
-    ["EQ", "0000"],
-    ["NE", "0001"],
-    ["HS", "0010"],
-    ["CS", "0010"],
-    ["LO", "0011"],
-    ["CC", "0011"],
-    ["MI", "0100"],
-    ["PL", "0101"],
-    ["VS", "0110"],
-    ["VC", "0111"],
-    ["HI", "1000"],
-    ["LS", "1001"],
-    ["GE", "1010"],
-    ["LT", "1011"],
-    ["GT", "1100"],
-    ["LE", "1101"],
-    ["AL", "1110"],
-    ["", "1110"],
-    ["NV", "1111"]
-]);
-
-const InstructionEncoding = new Map([
-    ["ADC", "0101"],
-    ["ADD", "0100"],
-    ["MLA", "0001"],
-    ["MUL", "0000"],
-    ["RSB", "0011"],
-    ["RSC", "0111"],
-    ["SBC", "0110"],
-    ["SUB", "0010"],
-    ["AND", "0000"],
-    ["BIC", "1110"],
-    ["CMN", "1011"],
-    ["CMP", "1010"],
-    ["EOR", "0001"],
-    ["ORR", "1100"],
-    ["TEQ", "1001"],
-    ["TST", "1000"],
-    ["MOV", "1101"],
-    ["MVN", "1111"]
-]);

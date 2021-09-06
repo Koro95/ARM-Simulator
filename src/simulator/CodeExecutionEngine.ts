@@ -1,5 +1,5 @@
 import { Cpu, MessageType } from "./Cpu";
-import { Instruction, ArithmeticInstruction, LogicInstruction, CopyJumpInstruction, Operand, RegisterOperand, ImmediateOperand, ShiftOperand } from "./InstructionsAndOperands";
+import { Instruction, ArithmeticInstruction, LogicInstruction, CopyJumpInstruction, Operand, RegisterOperand, ImmediateOperand, ShiftOperand, BranchOperand } from "./InstructionsAndOperands";
 
 export { CodeExecutionEngine };
 
@@ -27,7 +27,7 @@ class CodeExecutionEngine {
         if (typeof this.currentInstruction !== 'undefined') {
             let inst = this.currentInstruction;
             let newRegisters = [...this.cpu.state.registers];
-            
+
             newRegisters[15] += 4;
             this.cpu.setState({ registers: newRegisters });
 
@@ -35,24 +35,24 @@ class CodeExecutionEngine {
             let flags = this.cpu.state.statusRegister.getFlags();
 
             switch (condition) {
-                case "EQ": if (flags[1]) { break; } return;
-                case "NE": if (!flags[1]) { break; } return;
-                case "HS": case "CS": if (flags[2]) { break; } return;
-                case "LO": case "CC": if (!flags[2]) { break; } return;
-                case "MI": if (flags[0]) { break; } return;
-                case "PL": if (!flags[0]) { break; } return;
-                case "VS": if (flags[3]) { break; } return;
-                case "VC": if (!flags[3]) { break; } return;
-                case "HI": if (flags[2] * Number(!flags[1])) { break; } return;
-                case "LS": if (Number(!flags[2]) + flags[1]) { break; } return;
-                case "GE": if (flags[0] * flags[3] + Number(!flags[0]) * Number(!flags[3])) { break; } return;
-                case "LT": if (flags[0] * Number(!flags[3]) + Number(!flags[0]) * flags[3]) { break; } return;
-                case "GT": if (Number(!flags[1]) * flags[0] * flags[3] +
+                case "eq": if (flags[1]) { break; } return;
+                case "ne": if (!flags[1]) { break; } return;
+                case "hs": case "cs": if (flags[2]) { break; } return;
+                case "lo": case "cc": if (!flags[2]) { break; } return;
+                case "mi": if (flags[0]) { break; } return;
+                case "pl": if (!flags[0]) { break; } return;
+                case "vs": if (flags[3]) { break; } return;
+                case "vc": if (!flags[3]) { break; } return;
+                case "hi": if (flags[2] * Number(!flags[1])) { break; } return;
+                case "ls": if (Number(!flags[2]) + flags[1]) { break; } return;
+                case "ge": if (flags[0] * flags[3] + Number(!flags[0]) * Number(!flags[3])) { break; } return;
+                case "lt": if (flags[0] * Number(!flags[3]) + Number(!flags[0]) * flags[3]) { break; } return;
+                case "gt": if (Number(!flags[1]) * flags[0] * flags[3] +
                     Number(!flags[1]) * Number(!flags[0]) * Number(!flags[3])) { break; } return;
-                case "LE": if (flags[0] * Number(!flags[3]) + flags[1] + 
+                case "le": if (flags[0] * Number(!flags[3]) + flags[1] +
                     Number(!flags[0]) * flags[3]) { break; } return;
-                case "AL": break;
-                case "NV": return;
+                case "al": break;
+                case "nv": return;
             }
 
             let result;
@@ -89,19 +89,34 @@ class CodeExecutionEngine {
                     else if (typeof op1 !== 'undefined') {
                         result = this.logical(inst, op1, op2);
                     }
-                    // CMP, CMN, TST, TEQ have 2 operands and don't need the result
-                    else if (typeof op1 !== 'undefined') {
-                        this.logical(inst, op1, op2);
-                    }
                 }
             }
             else if (inst instanceof CopyJumpInstruction) {
                 let x = inst.getOp1();
-                if (x instanceof RegisterOperand && typeof x !== 'undefined') { targetRegister = x.getIndex() };
-                op1 = this.getOperandValue(inst.getOp1());
-                op2 = this.getOperandValue(inst.getOp2());
-                if (typeof op2 !== 'undefined') {
-                    result = this.copyJump(inst, op2);
+                if (x instanceof RegisterOperand && typeof x !== 'undefined') {
+                    targetRegister = x.getIndex()
+
+                    op2 = this.getOperandValue(inst.getOp2());
+                    if (typeof op2 !== 'undefined') {
+                        result = this.copy(inst, op2);
+                    }
+                }
+                else if (x instanceof BranchOperand && typeof x !== 'undefined') {
+                    let address = this.cpu.state.mainMemory.labelToAddress.get(x.toString());
+                    newRegisters[15] -= 4;
+                    
+                    if (typeof address !== 'undefined') {
+                        if (inst.getInstruction() === "bl") {
+                            newRegisters[14] = newRegisters[15]
+                        }
+                        newRegisters[15] = address;
+                        this.cpu.setState({ registers: newRegisters });
+                    }
+                    else {
+                        this.cpu.setState({ registers: newRegisters });
+                        this.cpu.newTerminalMessage(MessageType.Error, "Invalid branch label!")
+                        return;
+                    }
                 }
             }
 
@@ -126,14 +141,14 @@ class CodeExecutionEngine {
         let isArithmetic = true;
 
         switch (inst.getInstruction()) {
-            case "ADD": y = (a + b); break;
-            case "ADC": y = (a + b + this.cpu.state.statusRegister.getC()); break;
-            case "SUB": y = (a + (~b + 1)); break;
-            case "SBC": y = (a + (~b + 1) + this.cpu.state.statusRegister.getC() - 1); break;
-            case "RSB": y = (b + (~a + 1)); break;
-            case "RSC": y = (b + (~a + 1) + this.cpu.state.statusRegister.getC() - 1); break;
-            case "MUL": y = (a * b); isArithmetic = false; break;
-            case "MLA": y = ((typeof x !== 'undefined') ? (a * b) + x : undefined); isArithmetic = false;
+            case "add": y = (a + b); break;
+            case "adc": y = (a + b + this.cpu.state.statusRegister.getC()); break;
+            case "sub": b = ~b; y = (a + b + 1); break;
+            case "sbc": b = ~b; y = (a + b + 1 + this.cpu.state.statusRegister.getC() - 1); break;
+            case "rsb": b = ~b; y = (b + a + 1); break;
+            case "rsc": b = ~b; y = (b + a + 1 + this.cpu.state.statusRegister.getC() - 1); break;
+            case "mul": y = (a * b); isArithmetic = false; break;
+            case "mla": y = ((typeof x !== 'undefined') ? (a * b) + x : undefined); isArithmetic = false;
         }
 
         if (inst.getUpdateStatusRegister() && typeof y !== 'undefined') {
@@ -147,31 +162,35 @@ class CodeExecutionEngine {
         let y = undefined;
         let isArithmetic = false;
         let updateStatusRegister = inst.getUpdateStatusRegister();
+        let resultNeeded = true;
 
         switch (inst.getInstruction()) {
-            case "AND": y = (a & b); break;
-            case "ORR": y = (a | b); break;
-            case "TEQ": y = (a ^ b); break;
-            case "BIC": y = (a & (~b)); break;
-            case "CMP": y = (a + (~b + 1)); isArithmetic = true; updateStatusRegister = true; break;
-            case "CMN": y = (a + b); isArithmetic = true; updateStatusRegister = true; break;
-            case "TST": y = (a & b); updateStatusRegister = true; break;
-            case "EOR": y = (a ^ b); updateStatusRegister = true;
+            case "and": y = (a & b); break;
+            case "orr": y = (a | b); break;
+            case "teq": y = (a ^ b); break;
+            case "bic": b = ~b; y = (a & b); break;
+            case "cmp": b = ~b; y = (a + b + 1); isArithmetic = true; resultNeeded = false; break;
+            case "cmn": y = (a + b); isArithmetic = true; resultNeeded = false; break;
+            case "tst": y = (a & b); resultNeeded = false; break;
+            case "eor": y = (a ^ b); resultNeeded = false;
         }
 
         if (updateStatusRegister && typeof y !== 'undefined') {
             this.cpu.state.statusRegister.updateFlags(isArithmetic, y, a, b);
         }
 
-        return y;
+        if (resultNeeded) {
+            return y;
+        }
+        return undefined;
     }
 
-    copyJump(inst: Instruction, b: number): number | undefined {
+    copy(inst: Instruction, b: number): number | undefined {
         let y = undefined;
 
         switch (inst.getInstruction()) {
-            case "MOV": y = b; break;
-            case "MVN": y = ~b;
+            case "mov": y = b; break;
+            case "mvn": y = ~b; break;
         }
 
         return y;
@@ -204,24 +223,25 @@ class CodeExecutionEngine {
 
         if (typeof x !== 'undefined' && typeof shiftAmount !== 'undefined') {
             switch (shiftOperand.getShiftType()) {
-                case "LSL":
-                case "ASL":
+                case "lsl":
+                case "asl":
                     result = x << shiftAmount;
                     carry = (x << (shiftAmount - 1)) & 0x80000000;
                     break;
-                case "LSR":
+                case "lsr":
                     result = x >>> shiftAmount;
                     carry = (x >>> (shiftAmount - 1)) & 1;
                     break;
-                case "ASR":
+                case "asr":
                     result = x >> shiftAmount;
                     carry = (x >> (shiftAmount - 1)) & 1;
                     break;
-                case "ROR":
+                case "ror":
                     result = (x >>> shiftAmount) | (x << (32 - shiftAmount));
                     carry = (x >>> (shiftAmount - 1)) & 1;
                     break;
-                case "RRX":
+                // TODO RRX only by 1 bit?
+                case "rrx":
                     result = (x >>> shiftAmount) | (x << (32 - shiftAmount + 1));
                     result |= (this.cpu.state.statusRegister.getC() << (32 - shiftAmount));
                     carry = (x >>> (shiftAmount - 1)) & 1;

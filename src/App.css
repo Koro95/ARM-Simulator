@@ -48,6 +48,20 @@
   font-family: monospace;
 }
 
+.App-playground {
+  background-color: white;
+  color: black;
+  height: 102.5%;
+  width: 100%;
+  resize: none;
+  border: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+}
+
 .App-memory-memorylines {
   background-color: white;
   height: 102.5%;
@@ -57,6 +71,57 @@
   margin: 0;
   padding: 0;
   display: flex;
+  flex-direction: column;
+  font-family: monospace;
+}
+
+.App-memory-memoryline {
+  height: 102.5%;
+  width: 100%;
+  resize: none;
+  border: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  font-family: monospace;
+}
+
+.App-memory-memoryline-highlight {
+  background-color: rgb(172, 172, 243);
+  height: 102.5%;
+  width: 100%;
+  resize: none;
+  border: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  font-family: monospace;
+}
+
+.App-memory-memoryline-label {
+  color: black;
+  text-align: left;
+  font-size: 15px;
+  width: 100px;
+  margin: 0;
+  margin-left: 100px;
+  padding: 0;
+  padding-left: 5px;
+  min-height: 20px;
+  border-left: black solid 1px;  ;
+}
+
+.App-memory-memoryline-content {
+  height: 102.5%;
+  width: 100%;
+  resize: none;
+  border: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: row;
   font-family: monospace;
 }
 
@@ -69,7 +134,7 @@
   padding: 0;
   display: flex;
   flex-direction: row;
-  border-bottom: black solid 1px;  ;
+  border-bottom: black solid 1px;
 }
 
 .App-memory-header-address {
@@ -111,7 +176,6 @@
 }
 
 .App-memory-address {
-  background-color: white;
   color: black;
   text-align: center;
   font-size: 15px;
@@ -123,7 +187,6 @@
 }
 
 .App-memory-content {
-  background-color: white;
   color: black;
   text-align: center;
   font-size: 15px;
@@ -134,7 +197,6 @@
 }
 
 .App-memory-instruction {
-  background-color: white;
   color: gray;
   text-align: left;
   font-size: 14px;
@@ -247,4 +309,29 @@
 .Button-goto {
   margin-right: 200px;
   height: 25px;
+}
+
+.playground-header {
+  padding-bottom: 5px;
+  padding-left: 10px;
+  margin-bottom: 10px;
+  border-bottom: black solid 1px;
+}
+
+.playground-div {
+  padding-bottom: 10px;
+  padding-left: 10px
+}
+
+.playground-sub-div {
+  padding-bottom: 2px;
+}
+
+.playground-operands {
+  min-width: 75px;
+  display: flex;
+}
+
+.MuiButton-outlined {
+  margin-right: 2px;
 }

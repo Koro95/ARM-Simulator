@@ -19,7 +19,8 @@ class StatusRegister {
 
             let signBeforeA = a & 0x80000000;
             let signBeforeB = b & 0x80000000;
-            if (signBeforeA === signBeforeB && this.getZ() !== 1) {
+            let zero = 0xefffffff
+            if (signBeforeA === signBeforeB && (a & zero) !== 0 && (b & zero) !== 0) {
                 let signAfter = y & 0x80000000;
                 this.setV((signBeforeA === signAfter) ? 0 : 1);
             }

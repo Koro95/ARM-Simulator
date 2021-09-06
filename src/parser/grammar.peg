@@ -1,10 +1,67 @@
-start := wsn '.arm' wsn section=section
-wsn := '[ \t\n]*'
-ws:= '[ \t]+'
+start := wson start=line
 
-section := text=text | '.data'
+line := wso currentLine=directive wso nend nextLine=line | wso currentLine=label wso nend nextLine=line | wso currentLine=instruction wso nend nextLine=line | $
 
-text := wsn '.text' wsn '.global' wsn '_start' wsn '_start:' wsn code=code $
-code := arithmetic
-arithmetic := inst=instruction ws reg1='r[0-9]+' ', ' reg2='r[0-9]+' ', ' reg3='r[0-9]+'
-instruction := 'ADD' | 'ADC' | 'SUB'
+directive := directive='.arm' | directive='.text' | directive='.data' | directive='.align' | directive='.global' ws '_start'
+label := label='[_A-Za-z]+' ':'
+instruction := instruction=art | instruction=log | instruction=copyJump
+
+//------------------------------------------------------------------------------------------------
+
+art := inst=artInst cond=condition ws operands=artOp | inst='mul' cond=condition ws operands=artMulOp | inst='mla' cond=condition ws operands=artMlaOp
+
+artInst := 'add' | 'adc' | 'sub' | 'sbc' | 'rsb' | 'rsc'
+
+artOp := artOp3 | artOp2
+artOp2 := op1=regOp ',' wso op2=op
+artOp3 := op1=regOp ',' wso op2=regOp ',' wso op3=op
+
+artMulOp := op1=regOp ',' wso op2=regOp ',' wso op3=regOp
+artMlaOp := op1=regOp ',' wso op2=regOp ',' wso op3=regOp ',' wso op4=regOp
+
+//------------------------------------------------------------------------------------------------
+
+log := inst=logInst cond=condition ws operands=logOp | inst=logCmpInst cond=condition ws operands=logOp2
+
+logInst := 'and' | 'orr' | 'eor' | 'bic'
+logCmpInst := 'cmp' | 'cmn' | 'tst' | 'teq'
+
+logOp := logOp3 | logOp2
+logOp2 := op1=regOp ',' wso op2=op
+logOp3 := op1=regOp ',' wso op2=regOp ',' wso op3=op
+
+//------------------------------------------------------------------------------------------------
+
+copyJump := inst=copyInst cond=condition ws operands=copyOp | inst=jumpInst1 cond=condition ws operands=jumpOp | inst=jumpInst2 cond=condition ws operands=jumpOp
+
+copyInst := 'mov' | 'mvn'
+jumpInst1 := 'b'
+jumpInst2 := 'bl'
+
+copyOp := op1=regOp ',' wso op2=op
+jumpOp := op1=branchOp
+
+//------------------------------------------------------------------------------------------------
+
+op := shiftOp=shiftOp | regImmOp=regImmOp
+regImmOp := regOp=regOp | immOp=immOp
+shiftOp := opToShift=regImmOp ',' wso shiftType=shiftType wso opShift=regImmOp
+
+regOp := regOp='r[0-9]+'
+
+immOp := immType='#' base=base number='[0-9a-f]+'
+base := '0x' | '0b' | ''
+
+branchOp := '[_A-Za-z0-9]+'
+
+shiftType := 'lsl' | 'asl' | 'lsr' | 'asr' | 'ror' | 'rrx'
+
+condition := condType=conditionType updateStatusReg='s'?
+conditionType := 'eq' | 'ne' | 'hs' | 'cs' | 'lo' | 'cc' | 'mi' | 'pl' | 'vs' | 'vc' | 'hi' | 'ls' | 'ge' | 'lt' | 'gt' | 'le' | 'al' | 'nv' | ''
+
+//------------------------------------------------------------------------------------------------
+
+ws := '[ \t]+'
+wso := '[ \t]*'
+wson := '[ \t\n]*'
+nend := '\n' | $
