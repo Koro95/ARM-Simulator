@@ -279,6 +279,10 @@
   overflow-y: auto;
 }
 
+.App-debugger-content {
+  padding-left: 5px;
+}
+
 .App-options {
   background-color: white;
   color: black;
@@ -332,6 +336,10 @@
   display: flex;
 }
 
-.MuiButton-outlined {
-  margin-right: 2px;
+.MuiButtonBase-root {
+  margin-right: 2px !important;
+}
+
+::-webkit-scrollbar {
+  width: 20px;
 }

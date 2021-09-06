@@ -1,5 +1,5 @@
 import { MainMemory } from "./MainMemory";
-import { Instruction, ArithmeticInstruction, LogicInstruction, CopyJumpInstruction, Operand, RegisterOperand, ImmediateOperand, ShiftOperand, BranchOperand } from "./InstructionsAndOperands";
+import { Instruction, ArithmeticInstruction, LogicInstruction, CopyJumpInstruction, RegisterOperand, ImmediateOperand, ShiftOperand, BranchOperand } from "./InstructionsAndOperands";
 
 
 export { InstructionEncoder }

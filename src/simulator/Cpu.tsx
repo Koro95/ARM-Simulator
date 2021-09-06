@@ -4,7 +4,6 @@ import InputBase from '@material-ui/core/InputBase';
 import { InputBaseComponentProps } from "@material-ui/core";
 import Box from '@material-ui/core/Box';
 import Button from '@material-ui/core/Button';
-import Checkbox from '@material-ui/core/Checkbox';
 import { Tab, Tabs, TabList, TabPanel } from 'react-tabs';
 import 'react-tabs/style/react-tabs.css';
 import Snackbar from '@material-ui/core/Snackbar';
@@ -42,12 +41,13 @@ class Cpu extends React.Component<any, CpuState> {
     constructor(props: any) {
         super(props)
         let defaultValue = 0x00000000;
-        let initializedRegisters = []
         let welcomeMessage = "<" + new Date().toLocaleTimeString() + "> Welcome";
-
+        
+        let initializedRegisters = []
         for (let index = 0; index < 16; index++) {
             initializedRegisters.push(defaultValue);
         }
+
         this.state = {
             registers: initializedRegisters, statusRegister: new StatusRegister(),
             codeExecutionEngine: new CodeExecutionEngine(this), userInput: test, terminal: new Terminal(welcomeMessage), mainMemory: new MainMemory(this),
@@ -101,8 +101,25 @@ class Cpu extends React.Component<any, CpuState> {
         this.setState({ terminal: this.state.terminal })
     }
 
+    componentDidUpdate() {
+        let scroll = this.state.terminal.scrollRef.current;
+        scroll.scrollTop = scroll.scrollHeight - scroll.clientHeight;
+    }
+
     toHex(x: number): string {
         return ('00000000' + x.toString(16)).slice(-8);
+    }
+
+    resetRegister() {
+        let defaultValue = 0x00000000;
+        let initializedRegisters = []
+        for (let index = 0; index < 16; index++) {
+            initializedRegisters.push(defaultValue);
+        }
+
+        let statusRegister = new StatusRegister()
+
+        this.setState({registers: initializedRegisters, statusRegister: statusRegister})
     }
 
     render() {
@@ -142,26 +159,35 @@ class Cpu extends React.Component<any, CpuState> {
                         </Tabs>
                     </Box>
                     <Box height="25.25%" mb="0.5%" className="App-debugger">
-                        <div>N: {this.state.statusRegister.getN()}, Z: {this.state.statusRegister.getZ()}, C: {this.state.statusRegister.getC()}, V: {this.state.statusRegister.getV()}</div>
+                        <div className="App-debugger-content">
+                            <div>N: {this.state.statusRegister.getN()}, Z: {this.state.statusRegister.getZ()}, C: {this.state.statusRegister.getC()}, V: {this.state.statusRegister.getV()}</div>
 
-                        <Button onClick={() => this.state.codeExecutionEngine.executeNextInstruction()} variant="outlined" color="primary">NextInst</Button> &nbsp;
-                        <Button onClick={() => { this.state.userInputParser.parseUserInput() }} variant="outlined" color="primary">Compile Memory</Button>
-                        <Snackbar
-                            anchorOrigin={{
-                                vertical: 'bottom',
-                                horizontal: 'left',
-                            }}
-                            open={this.state.open}
-                            autoHideDuration={6000}
-                            message={this.state.error}
-                            action={
-                                <React.Fragment>
-                                  <IconButton size="small" aria-label="close" color="inherit" onClick={() => this.setState({ open: false })}>
-                                    x
-                                  </IconButton>
-                                </React.Fragment>
-                              }
-                        />
+                            <div><Button onClick={() => { this.state.userInputParser.parseUserInput() }} variant="outlined" color="primary">Compile Memory</Button></div>
+                            <div>
+                                <Button className="button" onClick={() => this.state.codeExecutionEngine.executeNextInstruction()} variant="outlined" color="primary">NextInst</Button>
+                                <Button className="button" onClick={() => { this.state.codeExecutionEngine.stop = false; this.state.codeExecutionEngine.continue() }} variant="outlined" color="primary">Continue</Button>
+                                <Button onClick={() => this.state.codeExecutionEngine.stop = true} variant="outlined" color="primary">Stop</Button>
+                            </div>
+                            <div>
+                                <Button onClick={() => this.resetRegister()} variant="outlined" color="primary">Reset Register</Button>
+                            </div>
+                            <Snackbar
+                                anchorOrigin={{
+                                    vertical: 'bottom',
+                                    horizontal: 'left',
+                                }}
+                                open={this.state.open}
+                                autoHideDuration={6000}
+                                message={this.state.error}
+                                action={
+                                    <React.Fragment>
+                                        <IconButton size="small" aria-label="close" color="inherit" onClick={() => this.setState({ open: false })}>
+                                            x
+                                        </IconButton>
+                                    </React.Fragment>
+                                }
+                            />
+                        </div>
                     </Box>
                     <Box height="19.75%" className="App-options">
                         <div>Options</div>
@@ -200,9 +226,11 @@ class Cpu extends React.Component<any, CpuState> {
 
 class Terminal {
     messages: [MessageType, string][];
+    scrollRef: React.RefObject<any>;
 
     constructor(welcomeMessage: string) {
         this.messages = [[MessageType.Text, welcomeMessage,]];
+        this.scrollRef = React.createRef();
     }
 
     addMessage(type: MessageType, message: string) {
@@ -210,16 +238,17 @@ class Terminal {
     }
 
     render() {
-        return (<Box className="App-terminal" >
-            {this.messages.map(message => {
+        return (<div className="App-terminal" ref={this.scrollRef}>
+            {this.messages.map((message, i) => {
+                let messageDiv;
                 switch (message[0]) {
-                    case MessageType.Text: return <div className="App-terminal-content App-terminal-text"> {message[1]} </div>
-                    case MessageType.Warning: return <div className="App-terminal-content App-terminal-warning"> {message[1]} </div>
-                    case MessageType.Error: return <div className="App-terminal-content App-terminal-error"> {message[1]} </div>
+                    case MessageType.Text: messageDiv = <div className="App-terminal-content App-terminal-text"> {message[1]} </div>; break;
+                    case MessageType.Warning: messageDiv = <div className="App-terminal-content App-terminal-warning"> {message[1]} </div>; break;
+                    case MessageType.Error: messageDiv = <div className="App-terminal-content App-terminal-error"> {message[1]} </div>; break;
                 }
-                return undefined;
+                return messageDiv;
             })
             }
-        </Box>)
+        </div>)
     }
 }

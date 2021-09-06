@@ -6,24 +6,33 @@ export { CodeExecutionEngine };
 class CodeExecutionEngine {
     cpu: Cpu;
     currentInstruction: Instruction | undefined;
+    stop: boolean;
 
     constructor(cpu: Cpu) {
         this.cpu = cpu;
         this.currentInstruction = undefined;
+        this.stop = false;
     }
 
-    executeNextInstruction() {
+    executeNextInstruction(): boolean {
         let memoryAddress = this.cpu.state.registers[15];
         if (memoryAddress % 4 === 0) {
             this.currentInstruction = this.cpu.state.mainMemory.memoryLines.get(memoryAddress)?.getContent();
-            this.executeInstruction();
+            return this.executeInstruction();
         }
         else {
-            this.cpu.newTerminalMessage(MessageType.Error, "Invalid Memory Adress!")
+            this.cpu.newTerminalMessage(MessageType.Error, "Invalid Memory Adress!");
+            return false;
         }
     }
 
-    executeInstruction() {
+    continue() {
+        if (this.executeNextInstruction() && !this.stop) {
+            setTimeout(() => this.cpu.setState({}, () => this.continue()), 0)
+        }
+    }
+
+    executeInstruction(): boolean {
         if (typeof this.currentInstruction !== 'undefined') {
             let inst = this.currentInstruction;
             let newRegisters = [...this.cpu.state.registers];
@@ -35,24 +44,24 @@ class CodeExecutionEngine {
             let flags = this.cpu.state.statusRegister.getFlags();
 
             switch (condition) {
-                case "eq": if (flags[1]) { break; } return;
-                case "ne": if (!flags[1]) { break; } return;
-                case "hs": case "cs": if (flags[2]) { break; } return;
-                case "lo": case "cc": if (!flags[2]) { break; } return;
-                case "mi": if (flags[0]) { break; } return;
-                case "pl": if (!flags[0]) { break; } return;
-                case "vs": if (flags[3]) { break; } return;
-                case "vc": if (!flags[3]) { break; } return;
-                case "hi": if (flags[2] * Number(!flags[1])) { break; } return;
-                case "ls": if (Number(!flags[2]) + flags[1]) { break; } return;
-                case "ge": if (flags[0] * flags[3] + Number(!flags[0]) * Number(!flags[3])) { break; } return;
-                case "lt": if (flags[0] * Number(!flags[3]) + Number(!flags[0]) * flags[3]) { break; } return;
+                case "eq": if (flags[1]) { break; } return true;
+                case "ne": if (!flags[1]) { break; } return true;
+                case "hs": case "cs": if (flags[2]) { break; } return true;
+                case "lo": case "cc": if (!flags[2]) { break; } return true;
+                case "mi": if (flags[0]) { break; } return true;
+                case "pl": if (!flags[0]) { break; } return true;
+                case "vs": if (flags[3]) { break; } return true;
+                case "vc": if (!flags[3]) { break; } return true;
+                case "hi": if (flags[2] * Number(!flags[1])) { break; } return true;
+                case "ls": if (Number(!flags[2]) + flags[1]) { break; } return true;
+                case "ge": if (flags[0] * flags[3] + Number(!flags[0]) * Number(!flags[3])) { break; } return true;
+                case "lt": if (flags[0] * Number(!flags[3]) + Number(!flags[0]) * flags[3]) { break; } return true;
                 case "gt": if (Number(!flags[1]) * flags[0] * flags[3] +
-                    Number(!flags[1]) * Number(!flags[0]) * Number(!flags[3])) { break; } return;
+                    Number(!flags[1]) * Number(!flags[0]) * Number(!flags[3])) { break; } return true;
                 case "le": if (flags[0] * Number(!flags[3]) + flags[1] +
-                    Number(!flags[0]) * flags[3]) { break; } return;
+                    Number(!flags[0]) * flags[3]) { break; } return true;
                 case "al": break;
-                case "nv": return;
+                case "nv": return true;
             }
 
             let result;
@@ -104,7 +113,7 @@ class CodeExecutionEngine {
                 else if (x instanceof BranchOperand && typeof x !== 'undefined') {
                     let address = this.cpu.state.mainMemory.labelToAddress.get(x.toString());
                     newRegisters[15] -= 4;
-                    
+
                     if (typeof address !== 'undefined') {
                         if (inst.getInstruction() === "bl") {
                             newRegisters[14] = newRegisters[15]
@@ -115,12 +124,10 @@ class CodeExecutionEngine {
                     else {
                         this.cpu.setState({ registers: newRegisters });
                         this.cpu.newTerminalMessage(MessageType.Error, "Invalid branch label!")
-                        return;
+                        return false;
                     }
                 }
             }
-
-
 
             // update registers
             if (typeof result !== 'undefined' && typeof targetRegister !== 'undefined') {
@@ -130,9 +137,11 @@ class CodeExecutionEngine {
             if (inst.getUpdateStatusRegister()) {
                 this.cpu.setState({ statusRegister: this.cpu.state.statusRegister });
             }
+            return true;
         }
         else {
             this.cpu.newTerminalMessage(MessageType.Warning, "Instructions finished!")
+            return false;
         }
     }
 

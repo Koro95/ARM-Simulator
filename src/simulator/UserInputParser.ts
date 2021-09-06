@@ -1,5 +1,5 @@
 import { Cpu, MessageType } from "./Cpu";
-import { ParseResult, PosInfo, MatchAttempt, ASTKinds, art, log, copyJump, op , regOp, regImmOp, branchOp} from '../parser/parser';
+import { ParseResult, PosInfo, MatchAttempt, ASTKinds, art, log, copyJump, op , regOp, regImmOp} from '../parser/parser';
 
 export { UserInputParser }
 
@@ -25,7 +25,7 @@ class UserInputParser {
 
             let matches: Array<MatchAttempt> = errs[0].expmatches
             let matchesString = "";
-            matches.map(e => {
+            matches.forEach(e => {
                 if (e.kind === 'RegexMatch') {
                     matchesString += e.literal + ", "
                 }
@@ -84,7 +84,6 @@ class UserInputParser {
         switch (instruction.operands.kind) {
             case "artOp3":
                 op3 = this.opToString(instruction.operands.op3);
-                console.log(op3)
                 successful = this.cpu.state.mainMemory.addInstruction(instruction.inst, condition, updateStatusReg, op1, op2, op3, undefined);
                 break;
             case "artOp2":
