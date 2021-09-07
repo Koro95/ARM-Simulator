@@ -1,3 +1,0 @@
-{
-	"test": ".arm\n.text\n.global _start\n_start:\n\tMVN r0, #15\n\tMOV r1, #0x00ff0000\n\tADDS r1, r2, r3, LSL #4\nsubroutine:\n\tADD r8, #1\n\tRSBNE r0, r1\n\tSUBEQS r11, r12, r10\n\tCMP r8, #2\n\tBLT subroutine\n\tMUL r4, r2, r3\n\tMLA r1, r2, r3,r7\n\tAND r1, r4, r6\ntest:\n\tCMP r8, #3\n\tBLLT _start\n\tORR r3, r5\n\tCMP r0, r4\n\tTST r6, r7"
-}

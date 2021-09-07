@@ -1,4 +1,5 @@
-export { Instruction, ArithmeticInstruction, LogicInstruction, CopyJumpInstruction, Operand, RegisterOperand, ImmediateOperand, ShiftOperand, BranchOperand }
+export { Instruction, ArithmeticInstruction, LogicInstruction, CopyJumpInstruction, LoadStoreInstruction,
+    Operand, RegisterOperand, ImmediateOperand, ShiftOperand, BranchOperand, LoadStoreOperand }
 
 class Instruction {
     private instruction: string;
@@ -19,7 +20,7 @@ class Instruction {
 
     toString() {
         let string = this.instruction + this.condition;
-        if (!["cmp", "cmn", "tst", "teq"].includes(this.instruction)) {string += this.updateStatusRegister ? "s" : "";}
+        if (!["cmp", "cmn", "tst", "teq"].includes(this.instruction)) { string += this.updateStatusRegister ? "s" : ""; }
         return string;
     }
 }
@@ -117,6 +118,21 @@ class CopyJumpInstruction extends Instruction {
     }
 }
 
+class LoadStoreInstruction extends Instruction {
+    private op1: Operand | undefined;
+    private op2: Operand | undefined;
+
+    constructor(instruction: string,
+        condition: string,
+        op1: Operand | undefined,
+        op2: Operand | undefined,
+        updateStatusRegister: boolean) {
+        super(instruction, condition, updateStatusRegister);
+        this.op1 = op1;
+        this.op2 = op2;
+    }
+}
+
 class Operand { }
 
 class RegisterOperand extends Operand {
@@ -162,7 +178,7 @@ class ImmediateOperand extends Operand {
             case 16: numberString += "0x"; break;
             case 2: numberString += "0b"; break;
         }
-        return numberString +  this.getValue().toString(this.base);
+        return numberString + this.getValue().toString(this.base);
     }
     toEncoding() { return this.rotateImmed.toString(2).padStart(4, "0") + this.immed8.toString(2).padStart(8, "0") }
 }
@@ -213,6 +229,19 @@ class BranchOperand extends Operand {
     }
 
     toString() { return this.label };
+}
+
+class LoadStoreOperand extends Operand {
+    private register: RegisterOperand;
+    private offset: RegisterOperand | ImmediateOperand | ShiftOperand;
+    private postIndexed: boolean;
+
+    constructor(register: RegisterOperand, offset: RegisterOperand | ImmediateOperand | ShiftOperand, postIndexed: boolean) {
+        super();
+        this.register = register;
+        this.offset = offset;
+        this.postIndexed = postIndexed;
+    }
 }
 
 const ShiftTypeEncoding = new Map([

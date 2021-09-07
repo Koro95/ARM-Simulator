@@ -6,12 +6,7 @@ import { Cpu } from './simulator/Cpu'
 
 function App() {
   return (
-    <div className="App">
-      <div className="App-header">
-        Header
-      </div>
-        <Cpu></Cpu>
-    </div>
+    <Cpu></Cpu>
   );
 }
 

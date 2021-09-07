@@ -1,23 +1,64 @@
 import { Cpu, MessageType } from "./Cpu";
-import { Instruction, ArithmeticInstruction, LogicInstruction, CopyJumpInstruction, Operand, RegisterOperand, ImmediateOperand, ShiftOperand, BranchOperand } from "./InstructionsAndOperands";
+import { Instruction, ArithmeticInstruction, LogicInstruction, CopyJumpInstruction, Operand, RegisterOperand, ImmediateOperand, ShiftOperand, BranchOperand, LoadStoreInstruction } from "./InstructionsAndOperands";
+import { MainMemory } from "./MainMemory";
+import { StatusRegister } from "./StatusRegister";
 
 export { CodeExecutionEngine };
 
+enum DebuggerSpeed {
+    Instant = 0,
+    Slow = 300,
+    Medium = 100,
+    Fast = 10
+}
+
 class CodeExecutionEngine {
     cpu: Cpu;
-    currentInstruction: Instruction | undefined;
+    newRegisters: number[];
+    newStatusRegister: StatusRegister;
+    newMainMemory: MainMemory | undefined;
+    currentLine: Instruction | number | undefined;
+    debuggerSpeed: DebuggerSpeed;
     stop: boolean;
 
     constructor(cpu: Cpu) {
         this.cpu = cpu;
-        this.currentInstruction = undefined;
+        this.newRegisters = [];
+        this.newStatusRegister = new StatusRegister();
+        this.newMainMemory = undefined;
+        this.currentLine = undefined;
+        this.debuggerSpeed = DebuggerSpeed.Instant;
         this.stop = false;
     }
 
+    delay = (ms: number) => new Promise(res => setTimeout(res, ms));
+
+    continue = async () => {
+        this.newRegisters = [...this.cpu.state.registers];
+        this.newStatusRegister = this.cpu.state.statusRegister;
+        this.newMainMemory = this.cpu.state.mainMemory;
+
+        let breakPoint = 0;
+        let maxContinueInstructions = 1000;
+
+        do {
+            if (breakPoint++ > maxContinueInstructions) {
+                this.cpu.newTerminalMessage(MessageType.Warning, "Automatic breakpoint after " + maxContinueInstructions + " reached!")
+                break;
+            }
+            if (this.debuggerSpeed !== DebuggerSpeed.Instant) {
+                await this.delay(this.debuggerSpeed.valueOf())
+                this.cpu.setState({ registers: this.newRegisters, statusRegister: this.newStatusRegister });
+            }
+        } while (this.executeNextInstruction() && !this.stop);
+
+        this.cpu.setState({ registers: this.newRegisters, statusRegister: this.newStatusRegister });
+    }
+
     executeNextInstruction(): boolean {
-        let memoryAddress = this.cpu.state.registers[15];
-        if (memoryAddress % 4 === 0) {
-            this.currentInstruction = this.cpu.state.mainMemory.memoryLines.get(memoryAddress)?.getContent();
+        let memoryAddress = this.newRegisters[15];
+        if (memoryAddress % 4 === 0 && typeof this.newMainMemory !== 'undefined') {
+            this.currentLine = this.newMainMemory.memoryLines.get(memoryAddress)?.getContent();
             return this.executeInstruction();
         }
         else {
@@ -26,22 +67,14 @@ class CodeExecutionEngine {
         }
     }
 
-    continue() {
-        if (this.executeNextInstruction() && !this.stop) {
-            setTimeout(() => this.cpu.setState({}, () => this.continue()), 0)
-        }
-    }
-
     executeInstruction(): boolean {
-        if (typeof this.currentInstruction !== 'undefined') {
-            let inst = this.currentInstruction;
-            let newRegisters = [...this.cpu.state.registers];
+        if (this.currentLine instanceof Instruction) {
+            let inst = this.currentLine;
 
-            newRegisters[15] += 4;
-            this.cpu.setState({ registers: newRegisters });
+            this.newRegisters[15] += 4;
 
             let condition = inst.getCondition();
-            let flags = this.cpu.state.statusRegister.getFlags();
+            let flags = this.newStatusRegister.getFlags();
 
             switch (condition) {
                 case "eq": if (flags[1]) { break; } return true;
@@ -109,33 +142,34 @@ class CodeExecutionEngine {
                     if (typeof op2 !== 'undefined') {
                         result = this.copy(inst, op2);
                     }
+
+                    if (targetRegister === 15 && typeof result !== 'undefined') {
+                        result += 4;
+                    }
                 }
                 else if (x instanceof BranchOperand && typeof x !== 'undefined') {
                     let address = this.cpu.state.mainMemory.labelToAddress.get(x.toString());
-                    newRegisters[15] -= 4;
+                    this.newRegisters[15] -= 4;
 
                     if (typeof address !== 'undefined') {
                         if (inst.getInstruction() === "bl") {
-                            newRegisters[14] = newRegisters[15]
+                            this.newRegisters[14] = this.newRegisters[15]
                         }
-                        newRegisters[15] = address;
-                        this.cpu.setState({ registers: newRegisters });
+                        this.newRegisters[15] = address;
                     }
                     else {
-                        this.cpu.setState({ registers: newRegisters });
                         this.cpu.newTerminalMessage(MessageType.Error, "Invalid branch label!")
                         return false;
                     }
                 }
             }
+            else if (inst instanceof LoadStoreInstruction) {
+
+            }
 
             // update registers
             if (typeof result !== 'undefined' && typeof targetRegister !== 'undefined') {
-                newRegisters[targetRegister] = this.setTo32Bit(result);
-                this.cpu.setState({ registers: newRegisters });
-            }
-            if (inst.getUpdateStatusRegister()) {
-                this.cpu.setState({ statusRegister: this.cpu.state.statusRegister });
+                this.newRegisters[targetRegister] = this.setTo32Bit(result);
             }
             return true;
         }
@@ -151,17 +185,17 @@ class CodeExecutionEngine {
 
         switch (inst.getInstruction()) {
             case "add": y = (a + b); break;
-            case "adc": y = (a + b + this.cpu.state.statusRegister.getC()); break;
+            case "adc": y = (a + b + this.newStatusRegister.getC()); break;
             case "sub": b = ~b; y = (a + b + 1); break;
-            case "sbc": b = ~b; y = (a + b + 1 + this.cpu.state.statusRegister.getC() - 1); break;
-            case "rsb": b = ~b; y = (b + a + 1); break;
-            case "rsc": b = ~b; y = (b + a + 1 + this.cpu.state.statusRegister.getC() - 1); break;
+            case "sbc": b = ~b; y = (a + b + 1 + this.newStatusRegister.getC() - 1); break;
+            case "rsb": a = ~a; y = (b + a + 1); break;
+            case "rsc": a = ~a; y = (b + a + 1 + this.newStatusRegister.getC() - 1); break;
             case "mul": y = (a * b); isArithmetic = false; break;
             case "mla": y = ((typeof x !== 'undefined') ? (a * b) + x : undefined); isArithmetic = false;
         }
 
         if (inst.getUpdateStatusRegister() && typeof y !== 'undefined') {
-            this.cpu.state.statusRegister.updateFlags(isArithmetic, y, a, b);
+            this.newStatusRegister.updateFlags(isArithmetic, y, a, b);
         }
 
         return y;
@@ -185,7 +219,7 @@ class CodeExecutionEngine {
         }
 
         if (updateStatusRegister && typeof y !== 'undefined') {
-            this.cpu.state.statusRegister.updateFlags(isArithmetic, y, a, b);
+            this.newStatusRegister.updateFlags(isArithmetic, y, a, b);
         }
 
         if (resultNeeded) {
@@ -205,9 +239,13 @@ class CodeExecutionEngine {
         return y;
     }
 
+    loadStore(inst: Instruction,) {
+
+    }
+
     getOperandValue(operand: Operand | undefined): number | undefined {
         if (operand instanceof RegisterOperand) {
-            return this.cpu.state.registers[operand.getIndex()];
+            return this.newRegisters[operand.getIndex()];
         }
         else if (operand instanceof ImmediateOperand) {
             return operand.getValue();
@@ -252,14 +290,14 @@ class CodeExecutionEngine {
                 // TODO RRX only by 1 bit?
                 case "rrx":
                     result = (x >>> shiftAmount) | (x << (32 - shiftAmount + 1));
-                    result |= (this.cpu.state.statusRegister.getC() << (32 - shiftAmount));
+                    result |= (this.newStatusRegister.getC() << (32 - shiftAmount));
                     carry = (x >>> (shiftAmount - 1)) & 1;
                     break;
             }
         }
 
-        if (typeof this.currentInstruction !== 'undefined' && this.currentInstruction.getUpdateStatusRegister() && typeof carry !== 'undefined') {
-            this.cpu.state.statusRegister.setC(carry === 0 ? 0 : 1);
+        if (this.currentLine instanceof Instruction && this.currentLine.getUpdateStatusRegister() && typeof carry !== 'undefined') {
+            this.newStatusRegister.setC(carry === 0 ? 0 : 1);
         }
 
         return (typeof result !== 'undefined') ? this.setTo32Bit(result) : result;

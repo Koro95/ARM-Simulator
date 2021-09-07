@@ -66,7 +66,7 @@ class MainMemory {
         stringOperands.forEach(op => {
             let newOperand;
             if (typeof op !== 'undefined' && op !== "") {
-                if (["b", "bl"].includes(instruction) && typeof this.labelToAddress.get(op) !== 'undefined') {
+                if (["b", "bl"].includes(instruction)) {
                     newOperand = new BranchOperand(op);
                 }
                 else {
@@ -121,6 +121,16 @@ class MainMemory {
         this.labelToAddress.set(label, address);
         this.addressToLabel.set(address, label);
 
+        return true;
+    }
+
+    addData(address: number, data: number): boolean {
+        if (this.memoryLines.get(address)?.getContent() instanceof Instruction) {
+            this.cpu.newTerminalMessage(MessageType.Error, this.cpu.toHex(address) + " is a Code Section!");
+            return false;
+        }
+
+        this.memoryLines.set(address, new MemoryLine(data, undefined))
         return true;
     }
 
@@ -224,17 +234,22 @@ class MainMemory {
         for (let index = 0; index < this.preloadedMemoryLines; index++) {
             if (address >= 0xffffffff) { address = 0x100000000 - address };
             let encoding = "";
-            let instructionString = "";
-            let content = this.memoryLines.get(address);
-            if (typeof content !== 'undefined') {
-                let instruction = content.getContent();
-                encoding += this.instructionEncoder.toEncoding(instruction, address);
-                instructionString += instruction.toString();
+            let contentString = "";
+            let memoryLine = this.memoryLines.get(address);
+            if (typeof memoryLine !== 'undefined') {
+                let content = memoryLine.getContent();
+                if (content instanceof Instruction) {
+                    encoding += this.instructionEncoder.toEncoding(content, address);
+                    contentString += content.toString();
+                }
+                else {
+                    encoding += toHex(content);
+                }
             }
             else {
                 encoding += "00000000"
             }
-            items.push([toHex(address), encoding, instructionString]);
+            items.push([toHex(address), encoding, contentString]);
             address += 4;
         }
 
@@ -353,10 +368,10 @@ class MainMemory {
 }
 
 class MemoryLine {
-    content: Instruction;
-    label: string | undefined;
+    private content: Instruction | number;
+    private label: string | undefined;
 
-    constructor(content: Instruction, label: string | undefined) {
+    constructor(content: Instruction | number, label: string | undefined) {
         this.content = content;
         this.label = label;
     }

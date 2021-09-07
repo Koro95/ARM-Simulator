@@ -1,10 +1,17 @@
-start := wson start=line
+start := start=line
 
-line := wso currentLine=directive wso nend nextLine=line | wso currentLine=label wso nend nextLine=line | wso currentLine=instruction wso nend nextLine=line | $
+line := '[\s]*' currentLine=directive wso comment=comment? nend nextLine=line |
+        '[\s]*' currentLine=label wso comment=comment? nend nextLine=line |
+        '[\s]*' currentLine=instruction wso comment=comment? nend nextLine=line |
+        '[\s]*' currentLine=commentLine nend nextLine=line |
+        $
 
 directive := directive='.arm' | directive='.text' | directive='.data' | directive='.align' | directive='.global' ws '_start'
-label := label='[_A-Za-z]+' ':'
+label := label='[_A-Za-z0-9]+' ':'
 instruction := instruction=art | instruction=log | instruction=copyJump
+commentLine := commentLine=comment
+
+comment := comment='//[ \t\S]*'
 
 //------------------------------------------------------------------------------------------------
 
@@ -47,7 +54,7 @@ op := shiftOp=shiftOp | regImmOp=regImmOp
 regImmOp := regOp=regOp | immOp=immOp
 shiftOp := opToShift=regImmOp ',' wso shiftType=shiftType wso opShift=regImmOp
 
-regOp := regOp='r[0-9]+'
+regOp := regOp='r[0-9]+' | 'pc' | 'lr'
 
 immOp := immType='#' base=base number='[0-9a-f]+'
 base := '0x' | '0b' | ''
@@ -63,5 +70,4 @@ conditionType := 'eq' | 'ne' | 'hs' | 'cs' | 'lo' | 'cc' | 'mi' | 'pl' | 'vs' | 
 
 ws := '[ \t]+'
 wso := '[ \t]*'
-wson := '[ \t\n]*'
 nend := '\n' | $

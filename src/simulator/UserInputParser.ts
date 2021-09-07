@@ -17,9 +17,6 @@ class UserInputParser {
         let errs = parseResult.errs;
         let ast = parseResult.ast;
 
-        this.cpu.setState({ open: true, error: errs.length ? "Error found" : "Parsed" })
-
-
         if (errs.length !== 0) {
             let pos: PosInfo = errs[0].pos;
 
@@ -48,6 +45,7 @@ class UserInputParser {
                     case ASTKinds.instruction_3: successful = this.parseCopyJumpInstruction(currentLine.instruction); break;
                     case ASTKinds.label: successful = this.cpu.state.mainMemory.addLabel(this.cpu.state.mainMemory.memoryLines.size * 4, currentLine.label);
                 }
+
                 line = line.nextLine;
             }
 
@@ -64,7 +62,7 @@ class UserInputParser {
         }
 
         switch (op.kind) {
-            case ASTKinds.regOp: return op.regOp;
+            case ASTKinds.regOp_1: return op.regOp;
             case ASTKinds.op_1: return this.opToString(op.shiftOp.opToShift) + ", " + op.shiftOp.shiftType + " " + this.opToString(op.shiftOp.opShift);
             case ASTKinds.op_2: return this.opToString(op.regImmOp);
             case ASTKinds.regImmOp_1: return this.opToString(op.regOp);
