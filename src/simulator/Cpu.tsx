@@ -1,7 +1,7 @@
 import { examples } from '../parser/examples/examples'
 import React from "react";
 import InputBase from '@material-ui/core/InputBase';
-import { FormControl, InputBaseComponentProps, InputLabel, MenuItem, Select } from "@material-ui/core";
+import { InputBaseComponentProps, MenuItem, Select } from "@material-ui/core";
 import Box from '@material-ui/core/Box';
 import Button from '@material-ui/core/Button';
 import { Tab, Tabs, TabList, TabPanel } from 'react-tabs';
@@ -134,8 +134,9 @@ class Cpu extends React.Component<any, CpuState> {
 
     selectSpeedChange = (event: React.ChangeEvent<{ value: unknown }>) => {
         let speed = event.target.value as DebuggerSpeed;
-        this.state.codeExecutionEngine.debuggerSpeed = speed;
-        this.setState({ codeExecutionEngine: this.state.codeExecutionEngine });
+        let newEngine = this.state.codeExecutionEngine;
+        newEngine.debuggerSpeed = speed;
+        this.setState({ codeExecutionEngine: newEngine });
     };
 
     render() {
@@ -193,9 +194,9 @@ class Cpu extends React.Component<any, CpuState> {
 
                                 <div><Button onClick={() => { this.state.userInputParser.parseUserInput() }} variant="outlined" color="primary">Compile</Button></div>
                                 <div>
-                                    <Button className="button" onClick={() => { this.state.codeExecutionEngine.stop = true; this.state.codeExecutionEngine.continue() }} variant="outlined" color="primary">NextInst</Button>
-                                    <Button className="button" onClick={() => { this.state.codeExecutionEngine.stop = false; this.state.codeExecutionEngine.continue() }} variant="outlined" color="primary">Continue</Button>
-                                    <Button onClick={() => this.state.codeExecutionEngine.stop = true} variant="outlined" color="primary">Stop</Button>
+                                    <Button className="button" onClick={() => { let newEngine = this.state.codeExecutionEngine; newEngine.stop = true; this.setState({ codeExecutionEngine: newEngine }, () => this.state.codeExecutionEngine.continue()) }} variant="outlined" color="primary">NextInst</Button>
+                                    <Button className="button" onClick={() => { let newEngine = this.state.codeExecutionEngine; newEngine.stop = false; this.setState({ codeExecutionEngine: newEngine }, () => this.state.codeExecutionEngine.continue()) }} variant="outlined" color="primary">Continue</Button>
+                                    <Button onClick={() => {let newEngine = this.state.codeExecutionEngine; newEngine.stop = true; this.setState({ codeExecutionEngine: newEngine })}} variant="outlined" color="primary">Stop</Button>
                                 </div>
                                 <div>
                                     <Button onClick={() => this.resetRegister()} variant="outlined" color="primary">Reset Register</Button>

@@ -5,7 +5,7 @@ import { InputBaseComponentProps } from "@material-ui/core";
 import { positionValues, Scrollbars } from 'react-custom-scrollbars-2';
 import { Cpu, MessageType } from "./Cpu";
 import { InstructionEncoder } from "./InstructionEncoder";
-import { Instruction, ArithmeticInstruction, LogicInstruction, CopyJumpInstruction, Operand, RegisterOperand, ImmediateOperand, ShiftOperand, BranchOperand } from "./InstructionsAndOperands";
+import { Instruction, ArithmeticInstruction, LogicInstruction, CopyJumpInstruction, LoadStoreInstruction, Operand, RegisterOperand, ImmediateOperand, ShiftOperand, BranchOperand, LoadStoreOperand } from "./InstructionsAndOperands";
 
 export { MainMemory };
 
@@ -97,6 +97,9 @@ class MainMemory {
         else if (["mov", "mvn", "b", "bl"].includes(instruction)) {
             newInstruction = new CopyJumpInstruction(instruction, condition, operands[0], operands[1], updateStatusRegister);
         }
+        else if (["ldr", "str"].includes(instruction)) {
+            newInstruction = new LoadStoreInstruction(instruction, condition, operands[0], operands[1], updateStatusRegister);
+        }
 
         if (typeof newInstruction !== 'undefined') {
             this.memoryLines.set((this.memoryLines.size * 4), new MemoryLine(newInstruction, undefined));
@@ -135,9 +138,69 @@ class MainMemory {
     }
 
     addOperand(op: string): Operand | undefined {
+        op = op.replace(/\s+/g, '');
 
+        // case LoadStoreOperand
+        if (op[0] === "[" && op.includes("]")) {
+            let opParts = op.substring(1).split(']');
+            let preIndexParts = opParts[0].split(',');
+            let postIndexParts = opParts[1].split(',');
+
+            let register = this.addRegImmShiftOperand(preIndexParts[0]);
+            let offset;
+            let negativeRegOffset = false;
+            let increment = false;
+            let preIndexed = true;
+            if (preIndexParts.length > 1) {
+                if (opParts[1].length > 0 && !(opParts[1] === "!")) {
+                    return undefined;
+                }
+
+                let negativeRegOffsetString = preIndexParts[1][0];
+                switch (negativeRegOffsetString) {
+                    case "-":
+                        console.log(preIndexParts[1])
+                        negativeRegOffset = true;
+                        preIndexParts[1] = preIndexParts[1].substring(1);
+                        console.log(preIndexParts[1])
+                        break;
+                    case "+":
+                        preIndexParts[1] = preIndexParts[1].substring(1);
+                        break;
+                }
+                offset = this.addRegImmShiftOperand(preIndexParts.slice(1).join());
+                if (opParts[1] === "!") { increment = true; }
+            }
+            else if (postIndexParts.length > 1) {
+                increment = true;
+                preIndexed = false;
+                let negativeRegOffsetString = postIndexParts[1][0];
+                switch (negativeRegOffsetString) {
+                    case "-":
+                        negativeRegOffset = true;
+                        postIndexParts[1] = postIndexParts[1].substring(1);
+                        break;
+                    case "+":
+                        postIndexParts[1] = postIndexParts[1].substring(1);
+                        break;
+                }
+                offset = this.addRegImmShiftOperand(postIndexParts.slice(1).join());
+            }
+
+            if (register instanceof RegisterOperand &&
+                (offset instanceof RegisterOperand || offset instanceof ImmediateOperand || offset instanceof ShiftOperand || typeof offset === 'undefined')) {
+                return new LoadStoreOperand(register, offset, negativeRegOffset, increment, preIndexed);
+            }
+        }
+        // case ShiftOperand, RegisterOperand, ImmediateOperand
+        else {
+            return this.addRegImmShiftOperand(op);
+        }
+    }
+
+    addRegImmShiftOperand(op: string): Operand | undefined {
         // split in case of ShiftOperand
-        let opParts = op.split(/,[ ]+/)
+        let opParts = op.split(',')
 
         // invalid or nested ShiftOperand not allowed
         let operand1 = this.checkValidOperand(opParts[0]);
@@ -147,15 +210,16 @@ class MainMemory {
 
         // case op = ShiftOperand
         if (opParts.length > 1) {
-            let shiftParts = opParts[1].split(/[ ]+/);
+            let shiftType = opParts[1].substring(0, 3);
+            let shiftOperand = opParts[1].substring(3);
 
             // invalid or nested ShiftOperand not allowed
-            let operand2 = this.checkValidOperand(shiftParts[1])
+            let operand2 = this.checkValidOperand(shiftOperand)
             if (typeof operand2 === 'undefined' || operand2 instanceof ShiftOperand) {
                 return undefined;
             }
 
-            return new ShiftOperand(operand1, shiftParts[0], operand2);
+            return new ShiftOperand(operand1, shiftType, operand2);
         }
         // case op != ShiftOperand
         else {
@@ -171,7 +235,7 @@ class MainMemory {
         }
 
         let operandType = op.substring(0, 1);
-        let operandValue = Number(op.substring(1));
+        let operandValue = parseInt(op.substring(1));
 
         if (isNaN(operandValue)) {
             return undefined;
@@ -184,14 +248,27 @@ class MainMemory {
                 }
                 break;
             case "#":
-                let mask = 0xffffff00
+                op = op.substring(1);
+
+                let sign = op.substring(0, 1);
+
+                switch (sign) {
+                    case "+":
+                        op = op.substring(1);
+                        break;
+                    case "-":
+                        op = op.substring(1);
+                        break;
+                }
+
                 let base = 10;
-                let baseString = op.substring(1,3);
+                let baseString = op.substring(0, 2);
                 switch (baseString) {
                     case "0x": base = 16; break;
                     case "0b": base = 2; break;
                 }
 
+                let mask = 0xffffff00
                 for (let i = 0; i < 16; i++) {
                     if ((mask & operandValue) === 0) {
                         let backShift = 32 - 2 * i;
@@ -201,7 +278,7 @@ class MainMemory {
                     if ((mask & ~operandValue) === 0) {
                         let backShift = 32 - 2 * i;
                         let immed8 = ((~operandValue >>> backShift) | (~operandValue << (32 - backShift))) >>> 0
-                        return new ImmediateOperand(immed8, i, base);
+                        return new ImmediateOperand(~immed8, i, base);
                     }
                     mask = ((mask >>> 2) | (mask << (32 - 2))) >>> 0;
                 }

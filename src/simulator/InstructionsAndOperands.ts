@@ -1,5 +1,7 @@
-export { Instruction, ArithmeticInstruction, LogicInstruction, CopyJumpInstruction, LoadStoreInstruction,
-    Operand, RegisterOperand, ImmediateOperand, ShiftOperand, BranchOperand, LoadStoreOperand }
+export {
+    Instruction, ArithmeticInstruction, LogicInstruction, CopyJumpInstruction, LoadStoreInstruction,
+    Operand, RegisterOperand, ImmediateOperand, ShiftOperand, BranchOperand, LoadStoreOperand
+}
 
 class Instruction {
     private instruction: string;
@@ -131,6 +133,17 @@ class LoadStoreInstruction extends Instruction {
         this.op1 = op1;
         this.op2 = op2;
     }
+
+    getOp1() { return this.op1; }
+    getOp2() { return this.op2; }
+
+    toString() {
+        let string = super.toString();
+        if (typeof this.op1 !== 'undefined') { string += " " + this.op1.toString() };
+        if (typeof this.op2 !== 'undefined') { string += ", " + this.op2.toString() };
+
+        return string;
+    }
 }
 
 class Operand { }
@@ -171,7 +184,9 @@ class ImmediateOperand extends Operand {
         this.base = base;
     }
 
-    getValue() { return ((this.immed8 >>> this.rotateImmed * 2) | (this.immed8 << (32 - this.rotateImmed * 2))) >>> 0 }
+    getValue() {
+        return ((this.immed8 >>> this.rotateImmed * 2) | (this.immed8 << (32 - this.rotateImmed * 2)));
+    }
     toString() {
         let numberString = "#"
         switch (this.base) {
@@ -233,14 +248,46 @@ class BranchOperand extends Operand {
 
 class LoadStoreOperand extends Operand {
     private register: RegisterOperand;
-    private offset: RegisterOperand | ImmediateOperand | ShiftOperand;
-    private postIndexed: boolean;
+    private offset: RegisterOperand | ImmediateOperand | ShiftOperand | undefined;
+    private negativeRegOffset: boolean;
+    private increment: boolean;
+    private preIndexed: boolean;
 
-    constructor(register: RegisterOperand, offset: RegisterOperand | ImmediateOperand | ShiftOperand, postIndexed: boolean) {
+    constructor(register: RegisterOperand, offset: RegisterOperand | ImmediateOperand | ShiftOperand | undefined, negativeRegOffset: boolean, increment: boolean, preIndexed: boolean) {
         super();
         this.register = register;
         this.offset = offset;
-        this.postIndexed = postIndexed;
+        this.negativeRegOffset = negativeRegOffset;
+        this.increment = increment;
+        this.preIndexed = preIndexed;
+    }
+
+    getRegister() { return this.register };
+    getOffset() { return this.offset };
+    getNegativeRegOffset() { return this.negativeRegOffset };
+    getIncrement() { return this.increment };
+    getPreIndexed() { return this.preIndexed };
+
+    toString() {
+        let string = "[" + this.register.toString();
+        if (this.preIndexed) {
+            if (typeof this.offset !== 'undefined') {
+                string += ", ";
+                if (this.negativeRegOffset) { string += "-" };
+                string += this.offset.toString()
+            }
+            string += "]";
+            if (this.increment) { string += "!" };
+        }
+        else {
+            string += "]";
+            if (typeof this.offset !== 'undefined') {
+                string += ", "
+                if (this.negativeRegOffset) { string += "-" };
+                string += this.offset.toString();
+            }
+        }
+        return string;
     }
 }
 
