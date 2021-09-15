@@ -1,6 +1,6 @@
 import { MainMemory } from "./MainMemory";
-import { Instruction, ArithmeticInstruction, LogicInstruction, CopyJumpInstruction, RegisterOperand, ImmediateOperand, ShiftOperand, BranchOperand } from "./InstructionsAndOperands";
-
+import { Instruction, ArithmeticInstruction, MultiplicationInstruction, LogicInstruction, CopyInstruction, JumpInstruction, LoadStoreInstruction, SoftwareInterrupt } from "./Instructions";
+import { RegisterOperand, ImmediateOperand, ShifterOperand, BranchOperand, LoadStoreOperand} from './Operands';
 
 export { InstructionEncoder }
 
@@ -16,20 +16,23 @@ class InstructionEncoder {
         let encoding = "";
         encoding += ConditionEncoding.get(inst.getCondition());
 
-        if (inst instanceof ArithmeticInstruction) {
+        if (inst instanceof ArithmeticInstruction || inst instanceof MultiplicationInstruction) {
             encoding += this.toEncodingArithmeticInstruction(inst);
         }
         else if (inst instanceof LogicInstruction) {
             encoding += this.toEncodingLogicInstruction(inst);
         }
-        else if (inst instanceof CopyJumpInstruction) {
+        else if (inst instanceof CopyInstruction || inst instanceof JumpInstruction) {
             encoding += this.toEncodingCopyJumpInstruction(inst, currentAddress);
+        }
+        else if (inst instanceof SoftwareInterrupt) {
+            encoding += "1111000000000000000000000000"
         }
 
         return parseInt(encoding, 2).toString(16).padStart(8, "0");
     }
 
-    toEncodingArithmeticInstruction(inst: ArithmeticInstruction): string {
+    toEncodingArithmeticInstruction(inst: ArithmeticInstruction | MultiplicationInstruction): string {
         let encoding = "00"
 
         if (["mla", "mul"].includes(inst.getInstruction())) {
@@ -50,7 +53,7 @@ class InstructionEncoder {
 
         inst.getUpdateStatusRegister() ? encoding += "1" : encoding += "0";
 
-        if (["mla", "mul"].includes(inst.getInstruction())) {
+        if (["mla", "mul"].includes(inst.getInstruction()) && inst instanceof MultiplicationInstruction) {
             let operands = [inst.getOp1(), inst.getOp4(), inst.getOp3()]
 
             operands.forEach(op => {
@@ -95,7 +98,7 @@ class InstructionEncoder {
             else if (shifterOperand instanceof ImmediateOperand) {
                 encoding += shifterOperand.toEncoding();
             }
-            else if (shifterOperand instanceof ShiftOperand) {
+            else if (shifterOperand instanceof ShifterOperand) {
                 encoding += shifterOperand.toEncoding();
             }
         }
@@ -144,7 +147,7 @@ class InstructionEncoder {
             else if (shifterOperand instanceof ImmediateOperand) {
                 encoding += shifterOperand.toEncoding();
             }
-            else if (shifterOperand instanceof ShiftOperand) {
+            else if (shifterOperand instanceof ShifterOperand) {
                 encoding += shifterOperand.toEncoding();
             }
 
@@ -167,7 +170,7 @@ class InstructionEncoder {
             else if (shifterOperand instanceof ImmediateOperand) {
                 encoding += shifterOperand.toEncoding();
             }
-            else if (shifterOperand instanceof ShiftOperand) {
+            else if (shifterOperand instanceof ShifterOperand) {
                 encoding += shifterOperand.toEncoding();
             }
         }
@@ -175,10 +178,10 @@ class InstructionEncoder {
         return encoding;
     }
 
-    toEncodingCopyJumpInstruction(inst: CopyJumpInstruction, currentAddress: number): string {
+    toEncodingCopyJumpInstruction(inst: CopyInstruction | JumpInstruction, currentAddress: number): string {
         let encoding = "";
 
-        if (["mov", "mvn"].includes(inst.getInstruction())) {
+        if (["mov", "mvn"].includes(inst.getInstruction()) && inst instanceof CopyInstruction) {
             encoding += "00"
 
             // Rules for bit 25 (Immediate bit):
@@ -205,7 +208,7 @@ class InstructionEncoder {
             else if (shifterOperand instanceof ImmediateOperand) {
                 encoding += shifterOperand.toEncoding();
             }
-            else if (shifterOperand instanceof ShiftOperand) {
+            else if (shifterOperand instanceof ShifterOperand) {
                 encoding += shifterOperand.toEncoding();
             }
         }

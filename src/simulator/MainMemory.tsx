@@ -1,13 +1,16 @@
 import React from "react";
 import Button from '@material-ui/core/Button';
 import InputBase from '@material-ui/core/InputBase';
-import { InputBaseComponentProps } from "@material-ui/core";
+import { InputBaseComponentProps, Popover, Typography } from "@material-ui/core";
+import BreakpointDot from '@material-ui/icons/Brightness1Rounded';
 import { positionValues, Scrollbars } from 'react-custom-scrollbars-2';
 import { Cpu, MessageType } from "./Cpu";
 import { InstructionEncoder } from "./InstructionEncoder";
-import { Instruction, ArithmeticInstruction, LogicInstruction, CopyJumpInstruction, LoadStoreInstruction, Operand, RegisterOperand, ImmediateOperand, ShiftOperand, BranchOperand, LoadStoreOperand } from "./InstructionsAndOperands";
+import { Instruction, ArithmeticInstruction, LogicInstruction, CopyInstruction, JumpInstruction, LoadStoreInstruction, MultiplicationInstruction, SoftwareInterrupt } from "./Instructions";
+import { RegisterOperand, ImmediateOperand, ShifterOperand, BranchOperand, LoadStoreOperand, LoadImmediateOperand } from './Operands';
 
 export { MainMemory };
+
 
 class MainMemory {
     cpu: Cpu;
@@ -23,6 +26,7 @@ class MainMemory {
     memoryPositionFocus: string;
     preloadedMemoryLines: number;
     goto: number;
+
 
     constructor(cpu: Cpu) {
         this.cpu = cpu;
@@ -56,69 +60,190 @@ class MainMemory {
 
     }
 
-    addInstruction(instruction: string, condition: string, updateStatusRegister: boolean,
-        op1: string | undefined, op2: string | undefined, op3: string | undefined, op4: string | undefined): boolean {
+    getMemoryLine(address: number): MemoryLine {
+        let memoryLine = this.memoryLines.get(address);
 
-        let stringOperands = [op1, op2, op3, op4]
-        let operands: (Operand | undefined)[] = [];
-        let invalidOperands: string[] = [];
-
-        stringOperands.forEach(op => {
-            let newOperand;
-            if (typeof op !== 'undefined' && op !== "") {
-                if (["b", "bl"].includes(instruction)) {
-                    newOperand = new BranchOperand(op);
-                }
-                else {
-                    newOperand = this.addOperand(op);
-                    if (typeof newOperand === 'undefined') {
-                        invalidOperands.push(op);
-                    }
-                }
-            }
-            operands.push(newOperand)
-        });
-
-        if (invalidOperands.length !== 0) {
-            invalidOperands.forEach(op => {
-                this.cpu.newTerminalMessage(MessageType.Error, op + " is an invalind operand!");
-            });
-            return false;
+        if (memoryLine === undefined) {
+            memoryLine = new MemoryLine(0, undefined);
         }
+
+        return memoryLine;
+    }
+
+    addInstruction(instruction: string, condition: string, updateStatusRegister: boolean,
+        op1String: string | undefined, op2String: string | undefined, op3String: string | undefined,
+        op4String: string | undefined, address?: number): boolean {
+
+        let invalidOperands: (string | undefined)[] = [];
 
         let newInstruction;
 
-        if (["add", "adc", "sub", "sbc", "rsb", "rsc", "mul", "mla"].includes(instruction)) {
-            newInstruction = new ArithmeticInstruction(instruction, condition, operands[0], operands[1], operands[2], operands[3], updateStatusRegister);
+        if (["add", "adc", "sub", "sbc", "rsb", "rsc"].includes(instruction)) {
+            let op1 = this.addRegisterOperand(op1String);
+            let op2 = this.addRegImmShiftOperand(op2String);
+            let op3 = this.addRegImmShiftOperand(op3String);
+
+            if (op1 !== undefined && op2 !== undefined) {
+                if (op3 !== undefined) {
+                    newInstruction = new ArithmeticInstruction(instruction, condition, op1, op2, op3, updateStatusRegister);
+                }
+                else if (op3String === "") {
+                    newInstruction = new ArithmeticInstruction(instruction, condition, op1, op1, op2, updateStatusRegister);
+                }
+                // op3String is undefined and not empty
+                else {
+                    invalidOperands.push(op3String)
+                }
+            }
+            // operands undefined
+            else {
+                if (op1 === undefined) { invalidOperands.push(op1String) }
+                if (op2 === undefined) { invalidOperands.push(op2String) }
+                if (op3 === undefined) { invalidOperands.push(op3String) }
+            }
         }
-        else if (["and", "orr", "eor", "bic", "cmp", "cmn", "tst", "teq"].includes(instruction)) {
-            newInstruction = new LogicInstruction(instruction, condition, operands[0], operands[1], operands[2], updateStatusRegister);
+        else if (["mul", "mla"].includes(instruction)) {
+            let op1 = this.addRegisterOperand(op1String);
+            let op2 = this.addRegisterOperand(op2String);
+            let op3 = this.addRegisterOperand(op3String);
+            let op4 = this.addRegisterOperand(op4String);
+
+            if (op1 !== undefined && op2 !== undefined && op3 !== undefined) {
+                if (instruction = "mul") {
+                    newInstruction = new MultiplicationInstruction(instruction, condition, op1, op2, op3, undefined, updateStatusRegister);
+                }
+                else if (op4 !== undefined) {
+                    newInstruction = new MultiplicationInstruction(instruction, condition, op1, op2, op3, op4, updateStatusRegister);
+                }
+                // "mla" and op4String undefined
+                else {
+                    invalidOperands.push(op4String)
+                }
+            }
+            // operands undefined
+            else {
+                if (op1 === undefined) { invalidOperands.push(op1String) }
+                if (op2 === undefined) { invalidOperands.push(op2String) }
+                if (op3 === undefined) { invalidOperands.push(op3String) }
+                if (op4 === undefined) { invalidOperands.push(op4String) }
+            }
         }
-        else if (["mov", "mvn", "b", "bl"].includes(instruction)) {
-            newInstruction = new CopyJumpInstruction(instruction, condition, operands[0], operands[1], updateStatusRegister);
+        else if (["and", "orr", "eor", "bic"].includes(instruction)) {
+            let op1 = this.addRegisterOperand(op1String);
+            let op2 = this.addRegImmShiftOperand(op2String);
+            let op3 = this.addRegImmShiftOperand(op3String);
+
+            if (op1 !== undefined && op2 !== undefined) {
+                if (op3 !== undefined) {
+                    newInstruction = new LogicInstruction(instruction, condition, op1, op2, op3, updateStatusRegister);
+                }
+                else if (op3String === "") {
+                    newInstruction = new LogicInstruction(instruction, condition, op1, op1, op2, updateStatusRegister);
+                }
+                // op3String is undefined and not empty
+                else {
+                    invalidOperands.push(op3String)
+                }
+            }
+            // operands undefined
+            else {
+                if (op1 === undefined) { invalidOperands.push(op1String) }
+                if (op2 === undefined) { invalidOperands.push(op2String) }
+                if (op3 === undefined) { invalidOperands.push(op3String) }
+            }
+        }
+        else if (["cmp", "cmn", "tst", "teq"].includes(instruction)) {
+            let op1 = this.addRegisterOperand(op1String);
+            let op2 = this.addRegImmShiftOperand(op2String);
+
+            if (op1 !== undefined && op2 !== undefined) {
+                newInstruction = new LogicInstruction(instruction, condition, op1, op2, undefined, updateStatusRegister);
+            }
+            // operands undefined
+            else {
+                if (op1 === undefined) { invalidOperands.push(op1String) }
+                if (op2 === undefined) { invalidOperands.push(op2String) }
+            }
+        }
+        else if (["mov", "mvn"].includes(instruction)) {
+            let op1 = this.addRegisterOperand(op1String);
+            let op2 = this.addRegImmShiftOperand(op2String);
+
+            if (op1 !== undefined && op2 !== undefined) {
+                newInstruction = new CopyInstruction(instruction, condition, op1, op2, updateStatusRegister);
+            }
+            // operands undefined
+            else {
+                if (op1 === undefined) { invalidOperands.push(op1String) }
+                if (op2 === undefined) { invalidOperands.push(op2String) }
+            }
+        }
+        else if (["b", "bl"].includes(instruction)) {
+            if (op1String !== undefined) {
+                let op1 = new BranchOperand(op1String);
+                newInstruction = new JumpInstruction(instruction, condition, op1, updateStatusRegister);
+            }
+            else {
+                invalidOperands.push(op1String);
+            }
         }
         else if (["ldr", "str"].includes(instruction)) {
-            newInstruction = new LoadStoreInstruction(instruction, condition, operands[0], operands[1], updateStatusRegister);
+            let op1 = this.addRegisterOperand(op1String);
+            let op2 = this.addLoadStoreOperand(op2String);
+            if (op1 !== undefined && op2 !== undefined) {
+                newInstruction = new LoadStoreInstruction(instruction, condition, op1, op2, updateStatusRegister);
+            }
+            // operands undefined
+            else {
+                if (op1 === undefined) { invalidOperands.push(op1String) }
+                if (op2 === undefined) { invalidOperands.push(op2String) }
+            }
+        }
+        else if (["swi"].includes(instruction)) {
+            newInstruction = new SoftwareInterrupt(instruction, condition, false);
+        }
+
+        if (invalidOperands.length !== 0) {
+            invalidOperands.forEach(op => {
+                this.cpu.newTerminalMessage(op + " is an invalind operand!", MessageType.Error);
+            })
+            return false;
         }
 
         if (typeof newInstruction !== 'undefined') {
-            this.memoryLines.set((this.memoryLines.size * 4), new MemoryLine(newInstruction, undefined));
+            if (address !== undefined) {
+                if (address % 4 === 0) {
+                    this.memoryLines.set(address, new MemoryLine(newInstruction, undefined));
+                }
+                else {
+                    this.cpu.newTerminalMessage("Address not aligned!", MessageType.Error)
+                    return false;
+                }
+            }
+            else {
+                this.memoryLines.set((this.memoryLines.size * 4), new MemoryLine(newInstruction, undefined));
+            }
         }
         else {
-            this.cpu.newTerminalMessage(MessageType.Error, instruction + " is an invalid instruction!");
+            this.cpu.newTerminalMessage(instruction + " is an invalid instruction!", MessageType.Error);
             return false;
         }
+
         return true;
     }
 
     addLabel(address: number, label: string): boolean {
+        if (address % 4 !== 0) {
+            this.cpu.newTerminalMessage("Address not aligned!", MessageType.Error);
+            return false;
+        }
 
         if (typeof this.labelToAddress.get(label) !== 'undefined') {
-            this.cpu.newTerminalMessage(MessageType.Error, label + " already exists!");
+            this.cpu.newTerminalMessage(label + " already exists!", MessageType.Error);
             return false;
         }
         else if (typeof this.addressToLabel.get(address) !== 'undefined') {
-            this.cpu.newTerminalMessage(MessageType.Error, this.cpu.toHex(address) + " already has a label!");
+            this.cpu.newTerminalMessage(this.cpu.toHex(address) + " already has a label!", MessageType.Error);
             return false;
         }
         this.labelToAddress.set(label, address);
@@ -128,8 +253,8 @@ class MainMemory {
     }
 
     addData(address: number, data: number): boolean {
-        if (this.memoryLines.get(address)?.getContent() instanceof Instruction) {
-            this.cpu.newTerminalMessage(MessageType.Error, this.cpu.toHex(address) + " is a Code Section!");
+        if (this.getMemoryLine(address).getContent() instanceof Instruction) {
+            this.cpu.newTerminalMessage(this.cpu.toHex(address) + " is a Code Section!", MessageType.Error);
             return false;
         }
 
@@ -137,20 +262,157 @@ class MainMemory {
         return true;
     }
 
-    addOperand(op: string): Operand | undefined {
+    addRegImmShiftOperand(op: string | undefined): RegisterOperand | ImmediateOperand | ShifterOperand | undefined {
+        if (op === undefined) { return undefined; }
         op = op.replace(/\s+/g, '');
 
-        // case LoadStoreOperand
-        if (op[0] === "[" && op.includes("]")) {
+        if (op.split(',').length > 1) { return this.addShifterOperand(op) }
+        else { return this.addRegImmOperand(op) }
+    }
+
+    addRegImmOperand(op: string | undefined): RegisterOperand | ImmediateOperand | undefined {
+        if (op === undefined) { return undefined; }
+        op = op.replace(/\s+/g, '');
+
+        switch (op.substring(0, 1)) {
+            case "#": return this.addImmediateOperand(op);
+            default: return this.addRegisterOperand(op);;
+        }
+    }
+
+    addRegisterOperand(op: string | undefined): RegisterOperand | undefined {
+        if (op === undefined) { return undefined; }
+        op = op.replace(/\s+/g, '');
+
+        switch (op) {
+            case "sp": return new RegisterOperand(13);
+            case "lr": return new RegisterOperand(14);
+            case "pc": return new RegisterOperand(15);
+        }
+
+        if (op.substring(0, 1) !== "r") { return undefined; }
+
+        let index = Number(op.substring(1));
+        if (index >= 0 && index < 16 && !isNaN(index)) {
+            return new RegisterOperand(index);
+        }
+
+        return undefined;
+    }
+
+    addImmediateOperand(op: string | undefined): ImmediateOperand | undefined {
+        if (op === undefined) { return undefined; }
+        op = op.replace(/\s+/g, '');
+
+        if (op.substring(0, 1) !== "#") { return undefined; }
+
+        let operandValueString = op.substring(1);
+
+        let isPositive = true;
+        switch (operandValueString.substring(0, 1)) {
+            case "+":
+                operandValueString = operandValueString.substring(1);
+                break;
+            case "-":
+                isPositive = false;
+                operandValueString = operandValueString.substring(1);
+                break;
+        }
+
+        let base = 10;
+        let baseString = operandValueString.substring(0, 2);
+        let operandValue;
+
+        switch (baseString) {
+            case "0x": base = 16; break;
+            case "0o": base = 2; break;
+            case "0b": base = 2; break;
+        }
+
+        if (isPositive) {
+            operandValue = Number(operandValueString);
+        }
+        else {
+            operandValue = Number(-operandValueString);
+        }
+
+        if (isNaN(operandValue)) {
+            return undefined;
+        }
+
+        op = op.substring(1);
+
+        let mask = 0xffffff00
+        for (let i = 0; i < 16; i++) {
+            if ((mask & operandValue) === 0) {
+                let backShift = 32 - 2 * i;
+                let immed8 = ((operandValue >>> backShift) | (operandValue << (32 - backShift))) >>> 0
+                return new ImmediateOperand(immed8, i, base);
+            }
+            if ((mask & ~operandValue) === 0) {
+                let backShift = 32 - 2 * i;
+                let immed8 = ((~operandValue >>> backShift) | (~operandValue << (32 - backShift))) >>> 0
+                return new ImmediateOperand(~immed8, i, base);
+            }
+            mask = ((mask >>> 2) | (mask << (32 - 2))) >>> 0;
+        }
+
+
+        return undefined;
+    }
+
+    addShifterOperand(op: string | undefined): ShifterOperand | undefined {
+        if (op === undefined) { return undefined; }
+        op = op.replace(/\s+/g, '');
+
+        let opParts = op.split(',')
+
+        let operand1 = this.addRegImmOperand(opParts[0]);
+        if (operand1 === undefined) { return undefined; }
+
+        let shiftType = opParts[1].substring(0, 3);
+        if (!["lsl", "asl", "lsr", "asr", "ror", "rrx"].includes(shiftType)) { return undefined; }
+
+        let shifterOperand = opParts[1].substring(3);
+
+        // invalid or nested ShifertOperand not allowed
+        let operand2 = this.addRegImmOperand(shifterOperand)
+        if (operand2 === undefined) { return undefined; }
+        if (operand2 instanceof ImmediateOperand && operand2.getValue() > 31) { return undefined; }
+
+        return new ShifterOperand(operand1, shiftType, operand2);
+    }
+
+    addLoadStoreOperand(op: string | undefined): LoadStoreOperand | LoadImmediateOperand | undefined {
+        if (op === undefined) { return undefined; }
+        op = op.replace(/\s+/g, '');
+
+        if (op[0] === "=") {
+            let x = Number(op.substring(1));
+
+            if (!isNaN(x)) {
+                return new LoadImmediateOperand(x);
+            }
+            else {
+                return new LoadImmediateOperand(new BranchOperand(op.substring(1)))
+            }
+        }
+        else {
+            if (op[0] !== "[" || !op.includes("]")) { return undefined; }
+
             let opParts = op.substring(1).split(']');
             let preIndexParts = opParts[0].split(',');
             let postIndexParts = opParts[1].split(',');
 
-            let register = this.addRegImmShiftOperand(preIndexParts[0]);
+            let register = this.addRegisterOperand(preIndexParts[0]);
+            if (typeof register === 'undefined') { return undefined };
+
             let offset;
             let negativeRegOffset = false;
             let increment = false;
             let preIndexed = true;
+
+            // preindexed
             if (preIndexParts.length > 1) {
                 if (opParts[1].length > 0 && !(opParts[1] === "!")) {
                     return undefined;
@@ -159,18 +421,18 @@ class MainMemory {
                 let negativeRegOffsetString = preIndexParts[1][0];
                 switch (negativeRegOffsetString) {
                     case "-":
-                        console.log(preIndexParts[1])
                         negativeRegOffset = true;
                         preIndexParts[1] = preIndexParts[1].substring(1);
-                        console.log(preIndexParts[1])
                         break;
                     case "+":
                         preIndexParts[1] = preIndexParts[1].substring(1);
                         break;
                 }
                 offset = this.addRegImmShiftOperand(preIndexParts.slice(1).join());
+                if (typeof offset === 'undefined') { return undefined };
                 if (opParts[1] === "!") { increment = true; }
             }
+            // postindexed
             else if (postIndexParts.length > 1) {
                 increment = true;
                 preIndexed = false;
@@ -185,119 +447,9 @@ class MainMemory {
                         break;
                 }
                 offset = this.addRegImmShiftOperand(postIndexParts.slice(1).join());
+                if (typeof offset === 'undefined') { return undefined };
             }
-
-            if (register instanceof RegisterOperand &&
-                (offset instanceof RegisterOperand || offset instanceof ImmediateOperand || offset instanceof ShiftOperand || typeof offset === 'undefined')) {
-                return new LoadStoreOperand(register, offset, negativeRegOffset, increment, preIndexed);
-            }
-        }
-        // case ShiftOperand, RegisterOperand, ImmediateOperand
-        else {
-            return this.addRegImmShiftOperand(op);
-        }
-    }
-
-    addRegImmShiftOperand(op: string): Operand | undefined {
-        // split in case of ShiftOperand
-        let opParts = op.split(',')
-
-        // invalid or nested ShiftOperand not allowed
-        let operand1 = this.checkValidOperand(opParts[0]);
-        if (typeof operand1 === 'undefined' || operand1 instanceof ShiftOperand) {
-            return undefined;
-        }
-
-        // case op = ShiftOperand
-        if (opParts.length > 1) {
-            let shiftType = opParts[1].substring(0, 3);
-            let shiftOperand = opParts[1].substring(3);
-
-            // invalid or nested ShiftOperand not allowed
-            let operand2 = this.checkValidOperand(shiftOperand)
-            if (typeof operand2 === 'undefined' || operand2 instanceof ShiftOperand) {
-                return undefined;
-            }
-
-            return new ShiftOperand(operand1, shiftType, operand2);
-        }
-        // case op != ShiftOperand
-        else {
-            return operand1;
-        }
-    }
-
-    checkValidOperand(op: string): Operand | undefined {
-        switch (op) {
-            case "sp": return new RegisterOperand(13);
-            case "lr": return new RegisterOperand(14);
-            case "pc": return new RegisterOperand(15);
-        }
-
-        let operandType = op.substring(0, 1);
-        let operandValue = parseInt(op.substring(1));
-
-        if (isNaN(operandValue)) {
-            return undefined;
-        }
-
-        switch (operandType) {
-            case "r":
-                if (operandValue >= 0 && operandValue < 16) {
-                    return new RegisterOperand(operandValue);
-                }
-                break;
-            case "#":
-                op = op.substring(1);
-
-                let sign = op.substring(0, 1);
-
-                switch (sign) {
-                    case "+":
-                        op = op.substring(1);
-                        break;
-                    case "-":
-                        op = op.substring(1);
-                        break;
-                }
-
-                let base = 10;
-                let baseString = op.substring(0, 2);
-                switch (baseString) {
-                    case "0x": base = 16; break;
-                    case "0b": base = 2; break;
-                }
-
-                let mask = 0xffffff00
-                for (let i = 0; i < 16; i++) {
-                    if ((mask & operandValue) === 0) {
-                        let backShift = 32 - 2 * i;
-                        let immed8 = ((operandValue >>> backShift) | (operandValue << (32 - backShift))) >>> 0
-                        return new ImmediateOperand(immed8, i, base);
-                    }
-                    if ((mask & ~operandValue) === 0) {
-                        let backShift = 32 - 2 * i;
-                        let immed8 = ((~operandValue >>> backShift) | (~operandValue << (32 - backShift))) >>> 0
-                        return new ImmediateOperand(~immed8, i, base);
-                    }
-                    mask = ((mask >>> 2) | (mask << (32 - 2))) >>> 0;
-                }
-        }
-
-        return undefined;
-    }
-
-    gotoChange = (e: React.ChangeEvent<HTMLTextAreaElement | HTMLInputElement>) => {
-        this.goto = parseInt('0x' + e.currentTarget.value);
-        this.cpu.setState({ mainMemory: this });
-    }
-
-    gotoMemoryAddress = () => {
-        this.memoryPosition = this.goto;
-        this.memoryPositionFocus = this.cpu.toHex(this.memoryPosition);
-        this.compile();
-        if (this.scrollRefTop.current !== null) {
-            this.scrollRefTop.current.scrollIntoView(true);
+            return new LoadStoreOperand(register, offset, negativeRegOffset, increment, preIndexed);
         }
     }
 
@@ -312,7 +464,7 @@ class MainMemory {
             if (address >= 0xffffffff) { address = 0x100000000 - address };
             let encoding = "";
             let contentString = "";
-            let memoryLine = this.memoryLines.get(address);
+            let memoryLine = this.getMemoryLine(address);
             if (typeof memoryLine !== 'undefined') {
                 let content = memoryLine.getContent();
                 if (content instanceof Instruction) {
@@ -324,6 +476,7 @@ class MainMemory {
                 }
             }
             else {
+                this.addData(address, 0);
                 encoding += "00000000"
             }
             items.push([toHex(address), encoding, contentString]);
@@ -335,6 +488,9 @@ class MainMemory {
         return (
             <div key="memory" className="App-memory">
                 <div className="App-memory-header">
+                    <div className="App-memory-header-breakpoint">
+                        <BreakpointDot style={{ color: 'red', padding: '2px' }} />
+                    </div>
                     <div className="App-memory-header-address">Address</div>
                     <div className="App-memory-header-content">Encoding</div>
                     <div className="App-memory-header-instruction">Instruction</div>
@@ -343,6 +499,28 @@ class MainMemory {
                     <Button className="Button-goto" onClick={() => { this.goto = this.cpu.state.registers[13]; this.gotoMemoryAddress() }} variant="outlined" color="primary">SP</Button>
                     <Button className="Button-goto" onClick={() => { this.goto = this.cpu.state.registers[14]; this.gotoMemoryAddress() }} variant="outlined" color="primary">LR</Button>
                     <Button className="Button-goto" onClick={() => { this.goto = this.cpu.state.registers[15]; this.gotoMemoryAddress() }} variant="outlined" color="primary">PC</Button>
+                    <div style={{ marginLeft: 'auto' }}>
+                        <Button variant="contained" color="primary" style={{ lineHeight: '18px' }}
+                            onClick={(e: React.MouseEvent<HTMLElement, MouseEvent>) => {
+                                this.cpu.setState({ anchorEl: e.currentTarget });
+                            }}>
+                            PlayGround</Button>
+                        <Popover
+                            open={Boolean(this.cpu.state.anchorEl)}
+                            anchorEl={this.cpu.state.anchorEl}
+                            onClose={() => this.cpu.setState({ anchorEl: null })}
+                            anchorOrigin={{
+                                vertical: 'bottom',
+                                horizontal: 'right',
+                            }}
+                            transformOrigin={{
+                                vertical: 'top',
+                                horizontal: 'right',
+                            }}
+                        >
+                            {this.cpu.state.playground.render()}
+                        </Popover>
+                    </div>
                 </div>
                 <Scrollbars className="App-memory-memorylines" ref={this.scrollRef} onScrollFrame={this.setScroll}>
                     <div key="memory" className="App-memory-memorylines">
@@ -353,18 +531,35 @@ class MainMemory {
                                 let labelDiv;
 
                                 if (typeof label !== 'undefined') {
-                                    labelDiv = <div key={"label" + i.toString()} className="App-memory-memoryline-label"> {label + ":"} </div>;
+                                    labelDiv = <div style={{ display: 'flex' }}>
+                                        <div className="App-memory-breakpoint"></div>
+                                        <div className="App-memory-address"></div>
+                                        <div key={"label" + i.toString()} className="App-memory-memoryline-label"> {label + ":"} </div>
+                                    </div>;
                                 }
 
+                                let breakpointDiv = <div key={"breakpoint" + i.toString()} className="App-memory-breakpoint">
+                                    <input type="checkbox" className="checkbox-round" checked={this.cpu.state.codeExecutionEngine.breakpoints.has(parseInt(address, 16))}
+                                        onChange={(e: any) => {
+                                            if (e.target.checked) {
+                                                this.cpu.state.codeExecutionEngine.breakpoints.add(parseInt(e.target.id, 16));
+                                            }
+                                            else {
+                                                this.cpu.state.codeExecutionEngine.breakpoints.delete(parseInt(e.target.id, 16));
+                                            }
+                                            this.cpu.setState({ codeExecutionEngine: this.cpu.state.codeExecutionEngine })
+                                        }} id={address} />
+                                </div>
                                 let addressDiv = <div key={i.toString()} className="App-memory-address"> {address} </div>
                                 let contentDiv = <div key={"content" + i.toString()} className="App-memory-content"> {element[1]} </div>;
-                                let instructionDiv = <div key={"instrcution" + i.toString()} className="App-memory-instruction"> {element[2]} </div>;
+                                let instructionDiv = <div key={"instruction" + i.toString()} className="App-memory-instruction"> {element[2]} </div>;
 
                                 let memorylineDiv;
                                 if (i === 0) {
                                     memorylineDiv = <React.Fragment><div ref={this.scrollRefTop} className="App-memory-memoryline">
                                         {labelDiv}
                                         <div className="App-memory-memoryline-content">
+                                            {breakpointDiv}
                                             {addressDiv}
                                             {contentDiv}
                                             {instructionDiv}
@@ -375,6 +570,7 @@ class MainMemory {
                                     memorylineDiv = <React.Fragment><div ref={this.scrollRefBot} className="App-memory-memoryline">
                                         {labelDiv}
                                         <div className="App-memory-memoryline-content">
+                                            {breakpointDiv}
                                             {addressDiv}
                                             {contentDiv}
                                             {instructionDiv}
@@ -385,6 +581,7 @@ class MainMemory {
                                     memorylineDiv = <React.Fragment><div ref={this.scrollRefMid} className="App-memory-memoryline">
                                         {labelDiv}
                                         <div className="App-memory-memoryline-content">
+                                            {breakpointDiv}
                                             {addressDiv}
                                             {contentDiv}
                                             {instructionDiv}
@@ -395,6 +592,7 @@ class MainMemory {
                                     memorylineDiv = <React.Fragment><div className="App-memory-memoryline">
                                         {labelDiv}
                                         <div className="App-memory-memoryline-content">
+                                            {breakpointDiv}
                                             {addressDiv}
                                             {contentDiv}
                                             {instructionDiv}
@@ -420,39 +618,49 @@ class MainMemory {
     setScroll(values: positionValues) {
         const { top } = values;
         let newLines = Math.floor(this.preloadedMemoryLines / 2);
-
+        // children[1] -> address in second div (breakpoint, address, encoding, instruction)
         if (top === 0) {
-            this.memoryPositionFocus = this.scrollRefTop.current.lastElementChild.firstElementChild.textContent.substring(1, 9);
+            this.memoryPositionFocus = this.scrollRefTop.current.lastElementChild.children[1].textContent.substring(1, 9);
             this.memoryPosition -= newLines * 4;
-            this.compile();
+            this.cpu.setState({ mainMemory: this })
             if (this.scrollRefMid.current !== null) {
                 this.scrollRefMid.current.scrollIntoView(true);
             }
         }
         else if (top === 1) {
-            this.memoryPositionFocus = this.scrollRefBot.current.lastElementChild.firstElementChild.textContent.substring(1, 9);
+            this.memoryPositionFocus = this.scrollRefBot.current.lastElementChild.children[1].textContent.substring(1, 9);
             this.memoryPosition += newLines * 4;
-            this.compile();
+            this.cpu.setState({ mainMemory: this })
             if (this.scrollRefMid.current !== null) {
                 this.scrollRefMid.current.scrollIntoView(false);
             }
         }
     }
 
-    compile() {
+    gotoChange = (e: React.ChangeEvent<HTMLTextAreaElement | HTMLInputElement>) => {
+        this.goto = parseInt('0x' + e.currentTarget.value);
+        this.cpu.setState({ mainMemory: this });
+    }
+
+    gotoMemoryAddress = () => {
+        this.memoryPosition = this.goto;
+        this.memoryPositionFocus = this.cpu.toHex(this.memoryPosition);
         this.cpu.setState({ mainMemory: this })
+        if (this.scrollRefTop.current !== null) {
+            this.scrollRefTop.current.scrollIntoView(true);
+        }
     }
 }
 
 class MemoryLine {
     private content: Instruction | number;
-    private label: string | undefined;
+    private comment: string | undefined;
 
-    constructor(content: Instruction | number, label: string | undefined) {
+    constructor(content: Instruction | number, comment: string | undefined) {
         this.content = content;
-        this.label = label;
+        this.comment = comment;
     }
 
     getContent() { return this.content };
-    getLabel() { return this.label };
+    getComment() { return this.comment };
 }

@@ -1,17 +1,19 @@
 start := start=line
 
-line := '[\s]*' currentLine=directive wso comment=comment? nend nextLine=line |
-        '[\s]*' currentLine=label wso comment=comment? nend nextLine=line |
-        '[\s]*' currentLine=instruction wso comment=comment? nend nextLine=line |
-        '[\s]*' currentLine=commentLine nend nextLine=line |
-        $
+line := '[\s]*' label=label? '[\s]*' currentLine=directive wso comment=comment? nend nextLine=line |
+        '[\s]*' label=label? '[\s]*' currentLine=instruction wso comment=comment? nend nextLine=line |
+        '[\s]*' label=label? '[\s]*' currentLine=commentLine nend nextLine=line |
+        '[\s]*' $
 
-directive := directive='.arm' | directive='.text' | directive='.data' | directive='.align' | directive='.global' ws '_start'
+//directive := directive='.arm' | directive='.text' | directive='.data' | directive='.align' | directive='.global' ws '_start'
+directive := directive=ascii
+ascii := '.ascii' ws '"' data='[ -!#-~]*' '"'
 label := label='[_A-Za-z0-9]+' ':'
-instruction := instruction=art | instruction=log | instruction=copyJump
+instruction := instruction=art | instruction=log | instruction=copyJump | instruction=loadStore | instruction=softwareInterrupt
 commentLine := commentLine=comment
+emptyLine := emptyLine=wso
 
-comment := comment='//[ \t\S]*'
+comment := comment='//[ \t\S]*' | comment='\/\*[ \t\S]*\*\/'
 
 //------------------------------------------------------------------------------------------------
 
@@ -20,11 +22,11 @@ art := inst=artInst cond=condition ws operands=artOp | inst='mul' cond=condition
 artInst := 'add' | 'adc' | 'sub' | 'sbc' | 'rsb' | 'rsc'
 
 artOp := artOp3 | artOp2
-artOp2 := op1=regOp ',' wso op2=op
-artOp3 := op1=regOp ',' wso op2=regOp ',' wso op3=op
+artOp2 := op1=regOp wso ',' wso op2=op
+artOp3 := op1=regOp wso ',' wso op2=regOp wso ',' wso op3=op
 
-artMulOp := op1=regOp ',' wso op2=regOp ',' wso op3=regOp
-artMlaOp := op1=regOp ',' wso op2=regOp ',' wso op3=regOp ',' wso op4=regOp
+artMulOp := op1=regOp wso ',' wso op2=regOp wso ',' wso op3=regOp
+artMlaOp := op1=regOp wso ',' wso op2=regOp wso ',' wso op3=regOp wso ',' wso op4=regOp
 
 //------------------------------------------------------------------------------------------------
 
@@ -34,8 +36,8 @@ logInst := 'and' | 'orr' | 'eor' | 'bic'
 logCmpInst := 'cmp' | 'cmn' | 'tst' | 'teq'
 
 logOp := logOp3 | logOp2
-logOp2 := op1=regOp ',' wso op2=op
-logOp3 := op1=regOp ',' wso op2=regOp ',' wso op3=op
+logOp2 := op1=regOp wso ',' wso op2=op
+logOp3 := op1=regOp wso ',' wso op2=regOp wso ',' wso op3=op
 
 //------------------------------------------------------------------------------------------------
 
@@ -45,19 +47,38 @@ copyInst := 'mov' | 'mvn'
 jumpInst1 := 'b'
 jumpInst2 := 'bl'
 
-copyOp := op1=regOp ',' wso op2=op
+copyOp := op1=regOp wso ',' wso op2=op
 jumpOp := op1=branchOp
+
+//------------------------------------------------------------------------------------------------
+
+loadStore := inst=loadStoreInst cond=condition ws operands=loadStoreOp | inst=loadStoreInst cond=condition ws operands=loadImmediateOp | inst=loadStoreInst cond=condition ws operands=loadImmediateBranchOp
+
+loadStoreInst := 'ldr' | 'str'
+
+loadStoreOp := op1=regOp wso ',' wso op2=addressingMode
+loadImmediateOp := op1=regOp wso ',' wso op2=immOp
+loadImmediateBranchOp := op1=regOp wso ',' wso '=' op2=branchOp
+
+//------------------------------------------------------------------------------------------------
+
+softwareInterrupt := inst='swi' cond=condition ws operands='#0'
 
 //------------------------------------------------------------------------------------------------
 
 op := shiftOp=shiftOp | regImmOp=regImmOp
 regImmOp := regOp=regOp | immOp=immOp
-shiftOp := opToShift=regImmOp ',' wso shiftType=shiftType wso opShift=regImmOp
+shiftOp := opToShift=regImmOp wso ',' wso shiftType=shiftType wso opShift=regImmOp
+addressingMode := '\[' wso reg=regOp wso '\]' offset=offset? | '\[' wso reg=regOp offset=offset? wso '\]' increment='!'?
+
+offset := wso ',' wso sign=sign offset=op
 
 regOp := regOp='r[0-9]+' | 'pc' | 'lr'
 
-immOp := immType='#' base=base number='[0-9a-f]+'
-base := '0x' | '0b' | ''
+immOp := immType=immType sign=sign base=base number='[0-9a-f]+'
+immType := '#' | '='
+base := '0x' | '0b' | '0o' | ''
+sign := '-' | '\+' | ''
 
 branchOp := '[_A-Za-z0-9]+'
 

@@ -1,5 +1,6 @@
 import { Cpu, MessageType } from "./Cpu";
-import { Instruction, ArithmeticInstruction, LogicInstruction, CopyJumpInstruction, Operand, RegisterOperand, ImmediateOperand, ShiftOperand, BranchOperand, LoadStoreInstruction } from "./InstructionsAndOperands";
+import { Instruction, ArithmeticInstruction, LogicInstruction, CopyInstruction, JumpInstruction, LoadStoreInstruction, MultiplicationInstruction, SoftwareInterrupt } from "./Instructions";
+import { Operand, RegisterOperand, ImmediateOperand, ShifterOperand, BranchOperand, LoadStoreOperand, LoadImmediateOperand } from './Operands';
 import { MainMemory } from "./MainMemory";
 import { StatusRegister } from "./StatusRegister";
 
@@ -20,6 +21,7 @@ class CodeExecutionEngine {
     currentLine: Instruction | number | undefined;
     debuggerSpeed: DebuggerSpeed;
     stop: boolean;
+    breakpoints: Set<number>;
 
     constructor(cpu: Cpu) {
         this.cpu = cpu;
@@ -29,6 +31,7 @@ class CodeExecutionEngine {
         this.currentLine = undefined;
         this.debuggerSpeed = DebuggerSpeed.Instant;
         this.stop = false;
+        this.breakpoints = new Set();
     }
 
     delay = (ms: number) => new Promise(res => setTimeout(res, ms));
@@ -38,31 +41,36 @@ class CodeExecutionEngine {
         this.newStatusRegister = this.cpu.state.statusRegister;
         this.newMainMemory = this.cpu.state.mainMemory;
 
-        let breakPoint = 0;
+        let currentNumInstruction = 0;
         let maxContinueInstructions = 1000;
 
         do {
-            if (breakPoint++ > maxContinueInstructions) {
-                this.cpu.newTerminalMessage(MessageType.Warning, "Automatic breakpoint after " + maxContinueInstructions + " reached!")
+            if (currentNumInstruction++ > maxContinueInstructions) {
+                this.cpu.newTerminalMessage("Automatic breakpoint after " + maxContinueInstructions + " reached!", MessageType.Error)
                 break;
             }
             if (this.debuggerSpeed !== DebuggerSpeed.Instant) {
                 await this.delay(this.debuggerSpeed.valueOf())
-                this.cpu.setState({ registers: this.newRegisters, statusRegister: this.newStatusRegister });
+                this.cpu.setState({ registers: this.newRegisters, statusRegister: this.newStatusRegister, mainMemory: this.newMainMemory });
             }
         } while (this.executeNextInstruction() && !this.stop);
 
-        this.cpu.setState({ registers: this.newRegisters, statusRegister: this.newStatusRegister });
+        this.cpu.setState({ registers: this.newRegisters, statusRegister: this.newStatusRegister, mainMemory: this.newMainMemory });
     }
 
     executeNextInstruction(): boolean {
         let memoryAddress = this.newRegisters[15];
+
         if (memoryAddress % 4 === 0 && typeof this.newMainMemory !== 'undefined') {
-            this.currentLine = this.newMainMemory.memoryLines.get(memoryAddress)?.getContent();
-            return this.executeInstruction();
+            this.currentLine = this.newMainMemory.getMemoryLine(memoryAddress).getContent();
+            let successful = this.executeInstruction();
+            if (this.breakpoints.has(this.newRegisters[15])) {
+                this.stop = true;
+            }
+            return successful;
         }
         else {
-            this.cpu.newTerminalMessage(MessageType.Error, "Invalid Memory Adress!");
+            this.cpu.newTerminalMessage("Invalid Memory Adress!", MessageType.Error);
             return false;
         }
     }
@@ -107,6 +115,21 @@ class CodeExecutionEngine {
                 op1 = this.getOperandValue(inst.getOp1());
                 op2 = this.getOperandValue(inst.getOp2());
                 op3 = this.getOperandValue(inst.getOp3());
+                if (typeof op2 !== 'undefined') {
+                    if (typeof op3 !== 'undefined') {
+                        result = this.arithmetic(inst, op2, op3, op4);
+                    }
+                    else if (typeof op1 !== 'undefined') {
+                        result = this.arithmetic(inst, op1, op2, op4);
+                    }
+                }
+            }
+            if (inst instanceof MultiplicationInstruction) {
+                let x = inst.getOp1();
+                if (x instanceof RegisterOperand && typeof x !== 'undefined') { targetRegister = x.getIndex() };
+                op1 = this.getOperandValue(inst.getOp1());
+                op2 = this.getOperandValue(inst.getOp2());
+                op3 = this.getOperandValue(inst.getOp3());
                 op4 = this.getOperandValue(inst.getOp4());
                 if (typeof op2 !== 'undefined') {
                     if (typeof op3 !== 'undefined') {
@@ -133,38 +156,124 @@ class CodeExecutionEngine {
                     }
                 }
             }
-            else if (inst instanceof CopyJumpInstruction) {
+            else if (inst instanceof CopyInstruction) {
                 let x = inst.getOp1();
-                if (x instanceof RegisterOperand && typeof x !== 'undefined') {
-                    targetRegister = x.getIndex()
 
-                    op2 = this.getOperandValue(inst.getOp2());
-                    if (typeof op2 !== 'undefined') {
-                        result = this.copy(inst, op2);
-                    }
+                targetRegister = x.getIndex()
 
-                    if (targetRegister === 15 && typeof result !== 'undefined') {
-                        result += 4;
-                    }
+                op2 = this.getOperandValue(inst.getOp2());
+                if (typeof op2 !== 'undefined') {
+                    result = this.copy(inst, op2);
                 }
-                else if (x instanceof BranchOperand && typeof x !== 'undefined') {
-                    let address = this.cpu.state.mainMemory.labelToAddress.get(x.toString());
-                    this.newRegisters[15] -= 4;
 
-                    if (typeof address !== 'undefined') {
-                        if (inst.getInstruction() === "bl") {
-                            this.newRegisters[14] = this.newRegisters[15]
-                        }
-                        this.newRegisters[15] = address;
-                    }
-                    else {
-                        this.cpu.newTerminalMessage(MessageType.Error, "Invalid branch label!")
-                        return false;
-                    }
+                if (targetRegister === 15 && typeof result !== 'undefined') {
+                    result += 4;
                 }
+
+            }
+            else if (inst instanceof JumpInstruction) {
+                let x = inst.getOp1();
+
+                let address = this.cpu.state.mainMemory.labelToAddress.get(x.toString());
+                this.newRegisters[15] -= 4;
+
+                if (typeof address !== 'undefined') {
+                    if (inst.getInstruction() === "bl") {
+                        this.newRegisters[14] = this.newRegisters[15]
+                    }
+                    this.newRegisters[15] = address;
+                }
+                else {
+                    this.cpu.newTerminalMessage("Invalid branch label!", MessageType.Error)
+                    return false;
+                }
+
             }
             else if (inst instanceof LoadStoreInstruction) {
+                let reg = this.getOperandValue(inst.getOp1());
+                let op2 = inst.getOp2();
 
+                if (op2 instanceof LoadStoreOperand) {
+                    let loadStoreReg = this.getOperandValue(op2.getRegister());
+                    let loadStoreOffset = this.getOperandValue(op2.getOffset());
+
+                    if (reg !== undefined && loadStoreReg !== undefined && this.newMainMemory !== undefined) {
+                        if (op2.getNegativeRegOffset() && loadStoreOffset !== undefined) {
+                            loadStoreOffset = -loadStoreOffset;
+                        }
+
+                        if (op2.getPreIndexed()) {
+                            if (loadStoreOffset !== undefined) {
+                                loadStoreReg += loadStoreOffset;
+                            }
+                            if (loadStoreReg % 4 !== 0) {
+                                this.cpu.newTerminalMessage(this.cpu.toHex(loadStoreReg) + " not an aligned address!", MessageType.Error)
+                                this.newRegisters[15] -= 4;
+                                return false;
+                            }
+                            if (inst.getInstruction() === "str") {
+                                this.newMainMemory.addData(loadStoreReg, reg)
+                            }
+                            else if (inst.getInstruction() === "ldr") {
+                                let content = this.newMainMemory.getMemoryLine(loadStoreReg).getContent();
+                                if (typeof content === 'number') {
+                                    this.newRegisters[inst.getOp1().getIndex()] = content;
+                                }
+                            }
+                        }
+                        else {
+                            if (loadStoreReg % 4 !== 0) {
+                                this.cpu.newTerminalMessage(this.cpu.toHex(loadStoreReg) + " not an aligned address!", MessageType.Error)
+                                this.newRegisters[15] -= 4;
+                                return false;
+                            }
+                            if (inst.getInstruction() === "str") {
+                                this.newMainMemory.addData(loadStoreReg, reg)
+                            }
+                            else if (inst.getInstruction() === "ldr") {
+                                let content = this.newMainMemory.getMemoryLine(loadStoreReg).getContent();
+                                if (typeof content === 'number') {
+                                    this.newRegisters[inst.getOp1().getIndex()] = content;
+                                }
+                            }
+                            if (loadStoreOffset !== undefined) {
+                                loadStoreReg += loadStoreOffset;
+                            }
+                        }
+
+                        if (op2.getIncrement()) {
+                            this.newRegisters[op2.getRegister().getIndex()] = loadStoreReg;
+                        }
+
+                    }
+                }
+                else if (op2 instanceof LoadImmediateOperand && inst.getInstruction() == "ldr" && this.newMainMemory !== undefined) {
+                    let op2Immediate = op2.getImmediate();
+                    let content;
+
+                    if (op2Immediate instanceof BranchOperand) {
+                        let contentAddress = this.newMainMemory?.labelToAddress.get(op2Immediate.getLabel());
+                        if (contentAddress === undefined) {
+                            this.cpu.newTerminalMessage("Label \"" + op2Immediate.getLabel() + "\" not found!", MessageType.Error)
+                            this.newRegisters[15] -= 4;
+                            return false;
+                        }
+                        else {
+                            this.newRegisters[inst.getOp1().getIndex()] = contentAddress;
+                        }
+
+                    }
+                    else {
+                        content = op2Immediate;
+                        this.newRegisters[inst.getOp1().getIndex()] = content;
+                    }
+                }
+                else {
+                    return false;
+                }
+            }
+            else if (inst instanceof SoftwareInterrupt) {
+                this.softwareInterrupt();
             }
 
             // update registers
@@ -174,7 +283,7 @@ class CodeExecutionEngine {
             return true;
         }
         else {
-            this.cpu.newTerminalMessage(MessageType.Warning, "Instructions finished!")
+            this.cpu.newTerminalMessage("Instructions finished!", MessageType.Warning)
             return false;
         }
     }
@@ -243,6 +352,41 @@ class CodeExecutionEngine {
 
     }
 
+    softwareInterrupt() {
+        if (this.newRegisters[0] === 0 && this.newRegisters[7] === 1) {
+            this.cpu.newTerminalMessage("Program exited successfully!")
+            this.newRegisters[15] -= 4;
+            this.stop = true;
+        }
+        else if (this.newRegisters[0] === 1 && this.newRegisters[7] === 4) {
+            let address = this.newRegisters[1];
+            let length = this.newRegisters[2];
+
+            let nextLine = address % 4;
+            address -= nextLine;
+
+            let output = "";
+
+            for (let x = 0; x < length; x++) {
+                let memoryLine =  this.newMainMemory?.getMemoryLine(address).getContent();
+                if (typeof memoryLine === 'number') {              
+                    output += String.fromCharCode(memoryLine >>> nextLine*8 & 0xff);
+                    nextLine++;
+                    if (nextLine === 4) {
+                        nextLine = 0;
+                        address+=4;
+                    }
+                }
+
+            }
+
+            this.cpu.newTerminalOutput(output);
+        }
+        else {
+            this.cpu.newTerminalMessage("Unkown Software Interrupt!", MessageType.Warning)
+        }
+    }
+
     getOperandValue(operand: Operand | undefined): number | undefined {
         if (operand instanceof RegisterOperand) {
             return this.newRegisters[operand.getIndex()];
@@ -250,7 +394,7 @@ class CodeExecutionEngine {
         else if (operand instanceof ImmediateOperand) {
             return operand.getValue();
         }
-        else if (operand instanceof ShiftOperand) {
+        else if (operand instanceof ShifterOperand) {
             return this.barrelShifter(operand);
         }
         else {
@@ -258,18 +402,21 @@ class CodeExecutionEngine {
         }
     }
 
-    barrelShifter(shiftOperand: ShiftOperand | undefined): number | undefined {
-        if (typeof shiftOperand === 'undefined') {
+    barrelShifter(shifterOperand: ShifterOperand | undefined): number | undefined {
+        if (typeof shifterOperand === 'undefined') {
             return undefined;
         }
 
         let result;
-        let x = this.getOperandValue(shiftOperand.getOperandToShift())
-        let shiftAmount = this.getOperandValue(shiftOperand.getShiftAmountOperand());
+        let x = this.getOperandValue(shifterOperand.getOperandToShift())
+        let shiftAmount = this.getOperandValue(shifterOperand.getShiftAmountOperand());
+        if (typeof shiftAmount !== 'undefined' && shiftAmount > 31) {
+            return 0;
+        }
         let carry;
 
         if (typeof x !== 'undefined' && typeof shiftAmount !== 'undefined') {
-            switch (shiftOperand.getShiftType()) {
+            switch (shifterOperand.getShiftType()) {
                 case "lsl":
                 case "asl":
                     result = x << shiftAmount;

@@ -7,15 +7,20 @@ import Button from '@material-ui/core/Button';
 import { Tab, Tabs, TabList, TabPanel } from 'react-tabs';
 import 'react-tabs/style/react-tabs.css';
 
+// @ts-ignore
+import CodeMirror from '@uiw/react-codemirror';
+
 import { CodeExecutionEngine } from "./CodeExecutionEngine";
 import { StatusRegister } from "./StatusRegister";
 import { MainMemory } from "./MainMemory";
 import { UserInputParser } from './UserInputParser';
 import { Playground } from './Playground';
 
+
 export { Cpu, MessageType };
 
 enum MessageType {
+    Output,
     Text,
     Warning,
     Error
@@ -32,13 +37,15 @@ type CpuState = {
     registers: number[];
     statusRegister: StatusRegister;
     codeExecutionEngine: CodeExecutionEngine;
-    userInput: String;
+    userInputTemplate: string;
+    userInput: string;
     terminal: Terminal;
     mainMemory: MainMemory;
     userInputParser: UserInputParser;
     playground: Playground;
     tab: number;
     tabExample: number;
+    anchorEl: HTMLElement | null;
 }
 
 class Cpu extends React.Component<any, CpuState> {
@@ -46,7 +53,8 @@ class Cpu extends React.Component<any, CpuState> {
         super(props)
         let defaultValue = 0x00000000;
         let welcomeMessage = "<" + new Date().toLocaleTimeString() + "> Welcome";
-        let startingExample = 1;
+        let startingExample = 0;
+        let example = examples[startingExample][1];
 
         let initializedRegisters = []
         for (let index = 0; index < 16; index++) {
@@ -55,41 +63,14 @@ class Cpu extends React.Component<any, CpuState> {
 
         this.state = {
             registers: initializedRegisters, statusRegister: new StatusRegister(),
-            codeExecutionEngine: new CodeExecutionEngine(this), userInput: examples[startingExample][1], terminal: new Terminal(welcomeMessage), mainMemory: new MainMemory(this),
-            userInputParser: new UserInputParser(this), playground: new Playground(this), tab: 0, tabExample: startingExample
+            codeExecutionEngine: new CodeExecutionEngine(this), userInputTemplate: example, userInput: example, terminal: new Terminal(welcomeMessage),
+            mainMemory: new MainMemory(this), userInputParser: new UserInputParser(this), playground: new Playground(this), tab: 0,
+            tabExample: startingExample, anchorEl: null
         };
     }
 
-    userInputChange = (e: React.ChangeEvent<HTMLTextAreaElement | HTMLInputElement>) => {
-        let newValue = e.currentTarget.value;
-
+    userInputChange = (newValue: string) => {
         this.setState({ userInput: newValue });
-    }
-
-    allowTabKey = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-        if (e.key === 'Tab') {
-            if (!e.shiftKey) {
-                e.preventDefault();
-
-                let x = (e.target as HTMLInputElement);
-                const selectionStart = x.selectionStart;
-                const selectionEnd = x.selectionEnd;
-
-                if (selectionStart != null && selectionEnd != null) {
-                    let newUserInput = this.state.userInput.substring(0, selectionStart)
-                        + "\t" + this.state.userInput.substring(selectionEnd);
-
-                    this.setState({ userInput: newUserInput },
-                        () => {
-                            x.selectionStart = x.selectionEnd = selectionStart + 1
-                            e.target = x
-                        });
-                }
-            }
-            else {
-                e.preventDefault();
-            }
-        }
     }
 
     regValueChange = (index: number, e: React.ChangeEvent<HTMLTextAreaElement | HTMLInputElement>) => {
@@ -100,9 +81,21 @@ class Cpu extends React.Component<any, CpuState> {
         this.setState({ registers: newRegisters });
     }
 
-    newTerminalMessage(type: MessageType, message: string) {
+    newTerminalMessage(message: string, type: MessageType = MessageType.Text) {
         let newMessage = "\n<" + new Date().toLocaleTimeString() + "> " + message;
         this.state.terminal.addMessage(type, newMessage);
+        this.setState({ terminal: this.state.terminal })
+    }
+
+    newTerminalOutput(message: string) {
+        let lastMessageIndex = this.state.terminal.messages.length - 1;
+        if (this.state.terminal.messages[lastMessageIndex][0] === MessageType.Output) {
+            let newMessage = this.state.terminal.messages[lastMessageIndex][1] + message;
+            this.state.terminal.messages[lastMessageIndex][1] = newMessage;
+        }
+        else {
+            this.state.terminal.addMessage(MessageType.Output, message);
+        }
         this.setState({ terminal: this.state.terminal })
     }
 
@@ -129,8 +122,15 @@ class Cpu extends React.Component<any, CpuState> {
 
     selectExampleChange = (event: React.ChangeEvent<{ value: unknown }>) => {
         let x = event.target.value as number;
-        this.setState({ userInput: examples[x][1], tabExample: x })
+        this.setState({ tabExample: x }, () => this.loadExample())
     };
+
+    loadExample = () => {
+        this.setState({ userInputTemplate: "", userInput: "" },
+            () => this.setState({ userInputTemplate: example, userInput: example, tab: 0 }))
+        let example = examples[this.state.tabExample][1];
+
+    }
 
     selectSpeedChange = (event: React.ChangeEvent<{ value: unknown }>) => {
         let speed = event.target.value as DebuggerSpeed;
@@ -151,6 +151,7 @@ class Cpu extends React.Component<any, CpuState> {
                         id="demo-simple-select"
                         value={this.state.tabExample}
                         onChange={this.selectExampleChange}
+                        onClose={this.loadExample}
                     >
                         <MenuItem value={0}>{examples[0][0]}</MenuItem>
                         <MenuItem value={1}>{examples[1][0]}</MenuItem>
@@ -196,7 +197,7 @@ class Cpu extends React.Component<any, CpuState> {
                                 <div>
                                     <Button className="button" onClick={() => { let newEngine = this.state.codeExecutionEngine; newEngine.stop = true; this.setState({ codeExecutionEngine: newEngine }, () => this.state.codeExecutionEngine.continue()) }} variant="outlined" color="primary">NextInst</Button>
                                     <Button className="button" onClick={() => { let newEngine = this.state.codeExecutionEngine; newEngine.stop = false; this.setState({ codeExecutionEngine: newEngine }, () => this.state.codeExecutionEngine.continue()) }} variant="outlined" color="primary">Continue</Button>
-                                    <Button onClick={() => {let newEngine = this.state.codeExecutionEngine; newEngine.stop = true; this.setState({ codeExecutionEngine: newEngine })}} variant="outlined" color="primary">Stop</Button>
+                                    <Button onClick={() => { let newEngine = this.state.codeExecutionEngine; newEngine.stop = true; this.setState({ codeExecutionEngine: newEngine }) }} variant="outlined" color="primary">Stop</Button>
                                 </div>
                                 <div>
                                     <Button onClick={() => this.resetRegister()} variant="outlined" color="primary">Reset Register</Button>
@@ -224,17 +225,22 @@ class Cpu extends React.Component<any, CpuState> {
                                 <TabList className="tab-list-input">
                                     <Tab>Code</Tab>
                                     <Tab>Memory</Tab>
-                                    <Tab>Playground</Tab>
                                 </TabList>
 
-                                <TabPanel style={{ height: 'calc(100% - 50px)' }}>
-                                    <textarea className="App-userinput" value={this.state.userInput.toString()} onChange={e => this.userInputChange(e)} onKeyDown={e => this.allowTabKey(e)} />
+                                <TabPanel style={{ height: 'calc(100% - 50px)' }} forceRender={true}>
+                                    <CodeMirror
+                                        className="App-userinput"
+                                        value={this.state.userInputTemplate}
+                                        onChange={this.userInputChange}
+                                        options={{
+                                            keyMap: 'sublime'
+                                        }}
+                                        height='100%' minHeight='100%' maxHeight='100%'
+                                        width='100%' minWidth='100%' maxWidth='100%'
+                                    />
                                 </TabPanel>
                                 <TabPanel style={{ height: 'calc(100% - 50px)' }}>
                                     {this.state.mainMemory.render()}
-                                </TabPanel>
-                                <TabPanel style={{ height: 'calc(100% - 50px)' }}>
-                                    {this.state.playground.render()}
                                 </TabPanel>
                             </Tabs>
                         </Box>
@@ -268,6 +274,7 @@ class Terminal {
             {this.messages.map((message, i) => {
                 let messageDiv;
                 switch (message[0]) {
+                    case MessageType.Output: messageDiv = <div className="App-terminal-content App-terminal-output"> {message[1]} </div>; break;
                     case MessageType.Text: messageDiv = <div className="App-terminal-content App-terminal-text"> {message[1]} </div>; break;
                     case MessageType.Warning: messageDiv = <div className="App-terminal-content App-terminal-warning"> {message[1]} </div>; break;
                     case MessageType.Error: messageDiv = <div className="App-terminal-content App-terminal-error"> {message[1]} </div>; break;
