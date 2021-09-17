@@ -7,7 +7,6 @@ import Button from '@material-ui/core/Button';
 import { Tab, Tabs, TabList, TabPanel } from 'react-tabs';
 import 'react-tabs/style/react-tabs.css';
 
-// @ts-ignore
 import CodeMirror from '@uiw/react-codemirror';
 
 import { CodeExecutionEngine } from "./CodeExecutionEngine";
@@ -193,14 +192,16 @@ class Cpu extends React.Component<any, CpuState> {
                             <div className="App-debugger-content">
                                 <div>N: {this.state.statusRegister.getN()}, Z: {this.state.statusRegister.getZ()}, C: {this.state.statusRegister.getC()}, V: {this.state.statusRegister.getV()}</div>
 
-                                <div><Button onClick={() => { this.state.userInputParser.parseUserInput() }} variant="outlined" color="primary">Compile</Button></div>
+                                <div>
+                                    <Button onClick={() => { this.state.userInputParser.parseUserInput() }} variant="outlined" color="primary">Compile</Button>
+                                </div>
                                 <div>
                                     <Button className="button" onClick={() => { let newEngine = this.state.codeExecutionEngine; newEngine.stop = true; this.setState({ codeExecutionEngine: newEngine }, () => this.state.codeExecutionEngine.continue()) }} variant="outlined" color="primary">NextInst</Button>
                                     <Button className="button" onClick={() => { let newEngine = this.state.codeExecutionEngine; newEngine.stop = false; this.setState({ codeExecutionEngine: newEngine }, () => this.state.codeExecutionEngine.continue()) }} variant="outlined" color="primary">Continue</Button>
                                     <Button onClick={() => { let newEngine = this.state.codeExecutionEngine; newEngine.stop = true; this.setState({ codeExecutionEngine: newEngine }) }} variant="outlined" color="primary">Stop</Button>
                                 </div>
                                 <div>
-                                    <Button onClick={() => this.resetRegister()} variant="outlined" color="primary">Reset Register</Button>
+                                    <Button onClick={() => this.resetRegister()} variant="outlined" color="primary">Reset Registers</Button>
                                 </div>
                             </div>
                         </Box>
@@ -232,9 +233,6 @@ class Cpu extends React.Component<any, CpuState> {
                                         className="App-userinput"
                                         value={this.state.userInputTemplate}
                                         onChange={this.userInputChange}
-                                        options={{
-                                            keyMap: 'sublime'
-                                        }}
                                         height='100%' minHeight='100%' maxHeight='100%'
                                         width='100%' minWidth='100%' maxWidth='100%'
                                     />

@@ -1,5 +1,5 @@
 import { Cpu, MessageType } from "./Cpu";
-import { ParseResult, PosInfo, MatchAttempt, ASTKinds, art, log, copyJump, loadStore, op, regOp, regImmOp, softwareInterrupt } from '../parser/parser';
+import { ParseResult, PosInfo, MatchAttempt, ASTKinds, art, log, copyJump, loadStore, op, regOp, regImmOp, softwareInterrupt, loadStoreMultiple, regOpList } from '../parser/parser';
 
 export { UserInputParser }
 
@@ -13,7 +13,7 @@ class UserInputParser {
     }
 
     parseUserInput() {
-        let parseResult: ParseResult = parse(this.cpu.state.userInput.toLowerCase());
+        let parseResult: ParseResult = parse(this.cpu.state.userInput);
         let errs = parseResult.errs;
         let ast = parseResult.ast;
 
@@ -24,7 +24,7 @@ class UserInputParser {
             let matchesString = "";
             matches.forEach(e => {
                 if (e.kind === 'RegexMatch') {
-                    matchesString += e.literal + ", "   
+                    matchesString += e.literal + ", "
                 }
             })
 
@@ -45,7 +45,7 @@ class UserInputParser {
 
             let successful = true;
 
-            while (line.kind !== ASTKinds.line_4) {
+            while (line.kind !== ASTKinds.line_5) {
                 let currentLine = line.currentLine;
                 let label = line.label;
 
@@ -58,8 +58,10 @@ class UserInputParser {
                     case ASTKinds.instruction_2: successful = this.parseLogicInstruction(currentLine.instruction); break;
                     case ASTKinds.instruction_3: successful = this.parseCopyJumpInstruction(currentLine.instruction); break;
                     case ASTKinds.instruction_4: successful = this.parseLoadStoreInstruction(currentLine.instruction); break;
-                    case ASTKinds.instruction_5: successful = this.parseSoftwareInterruptInstruction(currentLine.instruction);; break;
-                    case ASTKinds.directive: successful = this.addASCIIData(currentLine.directive.data); break;
+                    case ASTKinds.instruction_5: successful = this.parseLoadStoreMultipleInstruction(currentLine.instruction); break;
+                    case ASTKinds.instruction_6: successful = this.parseSoftwareInterruptInstruction(currentLine.instruction); break;
+                    case ASTKinds.variableLine: successful = this.addVariable(currentLine.variable, currentLine.label); break;
+                    case ASTKinds.directive_1: successful = this.addASCIIData(currentLine.directive.data); break;
                 }
 
                 if (!successful) { break; }
@@ -67,7 +69,17 @@ class UserInputParser {
                 line = line.nextLine;
             }
 
-            if (successful) {
+            if (successful) {             
+                let startAddress =  this.cpu.state.mainMemory.labelToAddress.get("_start");
+                if (startAddress !== undefined) {         
+                    let newRegisters = [...this.cpu.state.registers];
+                    newRegisters[15] = startAddress;
+                    this.cpu.setState({ registers: newRegisters })
+                }
+                else {
+                    this.cpu.newTerminalMessage("No \"_start\" label found. Starting at 0x00000000", MessageType.Warning)
+                }
+
                 this.cpu.state.mainMemory.goto = 0x00000000;
                 this.cpu.setState({ mainMemory: this.cpu.state.mainMemory, tab: 1 }, () => this.cpu.state.mainMemory.gotoMemoryAddress());
             }
@@ -91,6 +103,21 @@ class UserInputParser {
         }
     }
 
+    addVariable(variableName: string, label: string): boolean {
+        let labelAdress = this.cpu.state.mainMemory.labelToAddress.get(label);
+
+        if (labelAdress !== undefined) {
+            let variable = this.cpu.state.mainMemory.memoryLines.size * 4 - labelAdress;
+            this.cpu.state.mainMemory.variables.set(variableName, variable);
+            return true;
+        }
+        else {
+            this.cpu.newTerminalMessage("Could not find label to calculate variable!", MessageType.Error)
+            return false;
+        }
+
+    }
+
     addASCIIData(data: string): boolean {
         let specialCharacters = 0;
         for (; data.length > 0; data = data.substring(4 + specialCharacters)) {
@@ -106,9 +133,9 @@ class UserInputParser {
                         case "\\": char = "\\"; break;
                         case "n": char = "\n"; break;
                         case "t": char = "\t"; break;
-                        default: 
-                        this.cpu.newTerminalMessage("\\" + char + " invalid escape character!", MessageType.Error)
-                        return false;
+                        default:
+                            this.cpu.newTerminalMessage("\\" + char + " invalid escape character!", MessageType.Error)
+                            return false;
                     }
                     char = "\n";
                 }
@@ -239,6 +266,46 @@ class UserInputParser {
         }
 
         return successful;
+    }
+
+    parseLoadStoreMultipleInstruction(instruction: loadStoreMultiple): boolean {
+        let op1, op2;
+        let addressingMode = instruction.addressingMode;
+        let condition = instruction.cond.condType;
+
+        let successful = false;
+
+        op1 = this.opToString(instruction.operands.op1);
+        let increment = instruction.operands.increment;
+        if (increment !== null) { op1 += increment; }
+
+        op2 = "{";
+
+        let currentOp = instruction.operands.op2;
+        while (currentOp.kind !== ASTKinds.regOpList_2) {
+            op2 += this.regOpListToString(currentOp) + ",";
+            currentOp = currentOp.nextOp;
+        }
+
+        op2 += this.regOpListToString(currentOp) + "}";
+
+        successful = this.cpu.state.mainMemory.addInstruction(instruction.inst + addressingMode, condition, false, op1, op2, undefined, undefined);
+        return successful;
+    }
+
+    regOpListToString(regOpList: regOpList): string {
+        let string = "";
+
+        switch (regOpList.op.kind) {
+            case ASTKinds.regOpOrRange_1:
+                string += this.opToString(regOpList.op.op.op1) + "-" + this.opToString(regOpList.op.op.op2);
+                break;
+            case ASTKinds.regOpOrRange_2:
+                string += this.opToString(regOpList.op.op);
+                break;
+        }
+
+        return string;
     }
 
     parseSoftwareInterruptInstruction(instruction: softwareInterrupt): boolean {

@@ -6,8 +6,8 @@ import BreakpointDot from '@material-ui/icons/Brightness1Rounded';
 import { positionValues, Scrollbars } from 'react-custom-scrollbars-2';
 import { Cpu, MessageType } from "./Cpu";
 import { InstructionEncoder } from "./InstructionEncoder";
-import { Instruction, ArithmeticInstruction, LogicInstruction, CopyInstruction, JumpInstruction, LoadStoreInstruction, MultiplicationInstruction, SoftwareInterrupt } from "./Instructions";
-import { RegisterOperand, ImmediateOperand, ShifterOperand, BranchOperand, LoadStoreOperand, LoadImmediateOperand } from './Operands';
+import { Instruction, ArithmeticInstruction, LogicInstruction, CopyInstruction, JumpInstruction, LoadStoreInstruction, MultiplicationInstruction, SoftwareInterrupt, LoadStoreMultipleInstruction } from "./Instructions";
+import { RegisterOperand, ImmediateOperand, ShifterOperand, BranchOperand, LoadStoreOperand, LoadImmediateOperand, LoadStoreMultipleOperand } from './Operands';
 
 export { MainMemory };
 
@@ -18,6 +18,7 @@ class MainMemory {
     memoryLines: Map<number, MemoryLine>;
     labelToAddress: Map<string, number>;
     addressToLabel: Map<number, string>;
+    variables: Map<string, number>;
     scrollRef: React.RefObject<Scrollbars>;
     scrollRefTop: React.RefObject<any>;
     scrollRefMid: React.RefObject<any>;
@@ -34,6 +35,7 @@ class MainMemory {
         this.memoryLines = new Map();
         this.labelToAddress = new Map();
         this.addressToLabel = new Map();
+        this.variables = new Map();
         this.scrollRef = React.createRef();
         this.scrollRefTop = React.createRef();
         this.scrollRefMid = React.createRef();
@@ -73,6 +75,13 @@ class MainMemory {
     addInstruction(instruction: string, condition: string, updateStatusRegister: boolean,
         op1String: string | undefined, op2String: string | undefined, op3String: string | undefined,
         op4String: string | undefined, address?: number): boolean {
+
+        instruction = instruction.toLowerCase();
+        condition = condition.toLowerCase();
+        op1String = op1String?.toLowerCase();
+        op2String = op2String?.toLowerCase();
+        op3String = op3String?.toLowerCase();
+        op4String = op4String?.toLowerCase();
 
         let invalidOperands: (string | undefined)[] = [];
 
@@ -199,13 +208,35 @@ class MainMemory {
                 if (op2 === undefined) { invalidOperands.push(op2String) }
             }
         }
+        else if (["ldm", "stm"].includes(instruction.substring(0, 3))) {
+            let increment = false;
+            if (op1String !== undefined && op1String[op1String.length - 1] === "!") {
+                increment = true;
+                op1String = op1String.slice(0, -1);
+            }
+
+            let op1 = this.addRegisterOperand(op1String);
+            let op2 = this.addLoadStoreMultipleOperand(op2String);
+
+            let addressingMode = instruction.substring(3);
+            let validAddressingMode = ["fa", "ea", "fd", "ed", "ia", "ib", "da", "db", ""].includes(addressingMode)
+
+            if (op1 !== undefined && op2 !== undefined && validAddressingMode) {
+                newInstruction = new LoadStoreMultipleInstruction(instruction.substring(0, 3), condition, op1, op2, addressingMode, increment, updateStatusRegister);
+            }
+            // operands undefined
+            else {
+                if (op1 === undefined || !validAddressingMode) { invalidOperands.push(op1String) }
+                if (op2 === undefined) { invalidOperands.push(op2String) }
+            }
+        }
         else if (["swi"].includes(instruction)) {
             newInstruction = new SoftwareInterrupt(instruction, condition, false);
         }
 
         if (invalidOperands.length !== 0) {
             invalidOperands.forEach(op => {
-                this.cpu.newTerminalMessage(op + " is an invalind operand!", MessageType.Error);
+                this.cpu.newTerminalMessage(op + " is an invalid operand!", MessageType.Error);
             })
             return false;
         }
@@ -453,15 +484,71 @@ class MainMemory {
         }
     }
 
+    addLoadStoreMultipleOperand(op: string | undefined): LoadStoreMultipleOperand | undefined {
+        if (op === undefined) { return undefined; }
+
+        op = op.replace(/\s+/g, '');
+        if (op[0] !== "{" && op[op.length - 1] !== "}") {
+            return undefined;
+        }
+
+        let registersString = op.slice(1, -1).split(",");
+        let registers: RegisterOperand[] = [];
+        let invalidRegisters: string[] = [];
+
+        registersString.forEach((op) => {
+            let splitReg = op.split("-");
+
+            // single register
+            if (splitReg.length === 1) {
+                let reg = this.addRegisterOperand(splitReg[0])
+
+                if (reg !== undefined) {
+                    registers.push(reg);
+                }
+                else {
+                    invalidRegisters.push(op);
+                }
+            }
+            // register range
+            else if (splitReg.length === 2) {
+                let reg1 = this.addRegisterOperand(splitReg[0]);
+                let reg2 = this.addRegisterOperand(splitReg[1]);
+
+                if (reg1 !== undefined && reg2 !== undefined && reg1.getIndex() < reg2.getIndex()) {
+                    registers.push(reg1);
+                    for (let index = reg1.getIndex() + 1; index < reg2.getIndex(); index++) {
+                        registers.push(new RegisterOperand(index))
+                    }
+                    registers.push(reg2);
+                }
+                else {
+                    invalidRegisters.push(op);
+                }
+            }
+            // unkown operand
+            else {
+                invalidRegisters.push(op);
+            }
+        })
+
+        if (invalidRegisters.length > 0) {
+            this.cpu.newTerminalMessage("Unknown operands: " + invalidRegisters.toString(), MessageType.Error)
+            return undefined;
+        }
+
+        return new LoadStoreMultipleOperand(registers);
+    }
+
     render() {
         let toHex = this.cpu.toHex;
         const items = [];
 
         let address = this.memoryPosition;
-        if (address < 0) { address = 0x100000000 + address; }
+        if (address < 0) { address += 0x100000000; }
 
         for (let index = 0; index < this.preloadedMemoryLines; index++) {
-            if (address >= 0xffffffff) { address = 0x100000000 - address };
+            if (address >= 0xffffffff) { address = 0x100000000 - address }
             let encoding = "";
             let contentString = "";
             let memoryLine = this.getMemoryLine(address);

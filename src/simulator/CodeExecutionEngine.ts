@@ -1,5 +1,5 @@
 import { Cpu, MessageType } from "./Cpu";
-import { Instruction, ArithmeticInstruction, LogicInstruction, CopyInstruction, JumpInstruction, LoadStoreInstruction, MultiplicationInstruction, SoftwareInterrupt } from "./Instructions";
+import { Instruction, ArithmeticInstruction, LogicInstruction, CopyInstruction, JumpInstruction, LoadStoreInstruction, MultiplicationInstruction, SoftwareInterrupt, LoadStoreMultipleInstruction } from "./Instructions";
 import { Operand, RegisterOperand, ImmediateOperand, ShifterOperand, BranchOperand, LoadStoreOperand, LoadImmediateOperand } from './Operands';
 import { MainMemory } from "./MainMemory";
 import { StatusRegister } from "./StatusRegister";
@@ -190,87 +190,10 @@ class CodeExecutionEngine {
 
             }
             else if (inst instanceof LoadStoreInstruction) {
-                let reg = this.getOperandValue(inst.getOp1());
-                let op2 = inst.getOp2();
-
-                if (op2 instanceof LoadStoreOperand) {
-                    let loadStoreReg = this.getOperandValue(op2.getRegister());
-                    let loadStoreOffset = this.getOperandValue(op2.getOffset());
-
-                    if (reg !== undefined && loadStoreReg !== undefined && this.newMainMemory !== undefined) {
-                        if (op2.getNegativeRegOffset() && loadStoreOffset !== undefined) {
-                            loadStoreOffset = -loadStoreOffset;
-                        }
-
-                        if (op2.getPreIndexed()) {
-                            if (loadStoreOffset !== undefined) {
-                                loadStoreReg += loadStoreOffset;
-                            }
-                            if (loadStoreReg % 4 !== 0) {
-                                this.cpu.newTerminalMessage(this.cpu.toHex(loadStoreReg) + " not an aligned address!", MessageType.Error)
-                                this.newRegisters[15] -= 4;
-                                return false;
-                            }
-                            if (inst.getInstruction() === "str") {
-                                this.newMainMemory.addData(loadStoreReg, reg)
-                            }
-                            else if (inst.getInstruction() === "ldr") {
-                                let content = this.newMainMemory.getMemoryLine(loadStoreReg).getContent();
-                                if (typeof content === 'number') {
-                                    this.newRegisters[inst.getOp1().getIndex()] = content;
-                                }
-                            }
-                        }
-                        else {
-                            if (loadStoreReg % 4 !== 0) {
-                                this.cpu.newTerminalMessage(this.cpu.toHex(loadStoreReg) + " not an aligned address!", MessageType.Error)
-                                this.newRegisters[15] -= 4;
-                                return false;
-                            }
-                            if (inst.getInstruction() === "str") {
-                                this.newMainMemory.addData(loadStoreReg, reg)
-                            }
-                            else if (inst.getInstruction() === "ldr") {
-                                let content = this.newMainMemory.getMemoryLine(loadStoreReg).getContent();
-                                if (typeof content === 'number') {
-                                    this.newRegisters[inst.getOp1().getIndex()] = content;
-                                }
-                            }
-                            if (loadStoreOffset !== undefined) {
-                                loadStoreReg += loadStoreOffset;
-                            }
-                        }
-
-                        if (op2.getIncrement()) {
-                            this.newRegisters[op2.getRegister().getIndex()] = loadStoreReg;
-                        }
-
-                    }
-                }
-                else if (op2 instanceof LoadImmediateOperand && inst.getInstruction() == "ldr" && this.newMainMemory !== undefined) {
-                    let op2Immediate = op2.getImmediate();
-                    let content;
-
-                    if (op2Immediate instanceof BranchOperand) {
-                        let contentAddress = this.newMainMemory?.labelToAddress.get(op2Immediate.getLabel());
-                        if (contentAddress === undefined) {
-                            this.cpu.newTerminalMessage("Label \"" + op2Immediate.getLabel() + "\" not found!", MessageType.Error)
-                            this.newRegisters[15] -= 4;
-                            return false;
-                        }
-                        else {
-                            this.newRegisters[inst.getOp1().getIndex()] = contentAddress;
-                        }
-
-                    }
-                    else {
-                        content = op2Immediate;
-                        this.newRegisters[inst.getOp1().getIndex()] = content;
-                    }
-                }
-                else {
-                    return false;
-                }
+                if (!this.loadStore(inst)) { return false; }
+            }
+            else if (inst instanceof LoadStoreMultipleInstruction) {
+                if (!this.loadStoreMultiple(inst)) { return false; }
             }
             else if (inst instanceof SoftwareInterrupt) {
                 this.softwareInterrupt();
@@ -286,6 +209,217 @@ class CodeExecutionEngine {
             this.cpu.newTerminalMessage("Instructions finished!", MessageType.Warning)
             return false;
         }
+    }
+
+    loadStoreMultiple(inst: LoadStoreMultipleInstruction): boolean {
+        let addressingMode = inst.getAddressingMode()
+
+        // fd, fa, ed, ea
+        let alternateAddressingMode = AddressingMode.get(inst.getInstruction() + inst.getAddressingMode());
+        if (alternateAddressingMode !== undefined) {
+            addressingMode = alternateAddressingMode;
+        }
+
+        // default without addressing mode
+        let before = false;
+        let increment = true;
+
+        // ia, ib, da, db to increment/decrement and before/after
+        let addrModeToIncrement = AddressingModeToIncrement.get(addressingMode);
+        if (addrModeToIncrement !== undefined) {
+            increment = addrModeToIncrement[0];
+            before = addrModeToIncrement[1];
+        }
+
+        let address = this.getOperandValue(inst.getOp1());
+        let registers = [...inst.getOp2().getRegisters()];
+        if (!increment) { registers = registers.reverse() }
+        console.log(registers)
+        if (address !== undefined) {
+            if (inst.getInstruction() === "stm") {
+                for (let x = 0; x < registers.length; x++) {
+                    if (address !== undefined) {
+
+                        if (before) {
+                            increment ? address += 4 : address -= 4;
+                            if (address < 0) { address += 0x100000000 }
+                            else if (address >= 0xffffffff) { address = 0x100000000 - address }
+                        }
+
+                        let value = this.getOperandValue(registers[x]);
+                        let successful = false;
+                        if (value !== undefined) {
+                            successful = this.cpu.state.mainMemory.addData(address, value)
+                        }
+                        if (!successful) {
+                            this.newRegisters[15] -= 4;
+                            return false;
+                        }
+
+                        if (!before) {
+                            increment ? address += 4 : address -= 4;
+                            if (address < 0) { address += 0x100000000 }
+                            else if (address >= 0xffffffff) { address = 0x100000000 - address }
+                        }
+                    }
+
+                }
+            }
+            else if (inst.getInstruction() === "ldm") {
+                for (let x = 0; x < registers.length; x++) {
+                    if (address !== undefined) {
+
+                        if (before) {
+                            increment ? address += 4 : address -= 4;
+                            if (address < 0) { address += 0x100000000 }
+                            else if (address >= 0xffffffff) { address = 0x100000000 - address }
+                        }
+
+                        let value = this.cpu.state.mainMemory.getMemoryLine(address).getContent();
+                        if (typeof value === 'number') {
+                            this.newRegisters[registers[x].getIndex()] = value;
+                        }
+                        else {
+                            this.cpu.newTerminalMessage("Loading data from an Instruction line not supported!", MessageType.Warning)
+                            this.newRegisters[15] -= 4;
+                            return false;
+                        }
+
+                        if (!before) {
+                            increment ? address += 4 : address -= 4;
+                            if (address < 0) { address += 0x100000000 }
+                            else if (address >= 0xffffffff) { address = 0x100000000 - address }
+                        }
+                    }
+
+                }
+            }
+            else {
+                return false;
+            }
+
+
+            if (inst.getIncrement()) {
+                this.newRegisters[inst.getOp1().getIndex()] = address;
+            }
+        }
+
+        return true;
+    }
+
+    loadStore(inst: LoadStoreInstruction): boolean {
+        let reg = this.getOperandValue(inst.getOp1());
+        let op2 = inst.getOp2();
+
+        if (op2 instanceof LoadStoreOperand) {
+            let loadStoreReg = this.getOperandValue(op2.getRegister());
+            let loadStoreOffset = this.getOperandValue(op2.getOffset());
+
+            if (reg !== undefined && loadStoreReg !== undefined && this.newMainMemory !== undefined) {
+                if (op2.getNegativeRegOffset() && loadStoreOffset !== undefined) {
+                    loadStoreOffset = -loadStoreOffset;
+                }
+
+                if (op2.getPreIndexed()) {
+                    if (loadStoreOffset !== undefined) {
+                        loadStoreReg += loadStoreOffset;
+                        if (loadStoreReg < 0) { loadStoreReg += 0x100000000 }
+                        else if (loadStoreReg >= 0xffffffff) { loadStoreReg = 0x100000000 - loadStoreReg }
+                    }
+                    if (loadStoreReg % 4 !== 0) {
+                        this.cpu.newTerminalMessage(this.cpu.toHex(loadStoreReg) + " not an aligned address!", MessageType.Error)
+                        this.newRegisters[15] -= 4;
+                        return false;
+                    }
+                    if (inst.getInstruction() === "str") {
+                        let successful = this.newMainMemory.addData(loadStoreReg, reg)
+                        if (!successful) {
+                            this.cpu.newTerminalMessage("Storing data to an Instruction line not supported!", MessageType.Warning)
+                            this.newRegisters[15] -= 4;
+                            return false;
+                        }
+                    }
+                    else if (inst.getInstruction() === "ldr") {
+                        let content = this.newMainMemory.getMemoryLine(loadStoreReg).getContent();
+                        if (typeof content === 'number') {
+                            this.newRegisters[inst.getOp1().getIndex()] = content;
+                        }
+                        else {
+                            this.cpu.newTerminalMessage("Loading data from an Instruction line not supported!", MessageType.Warning)
+                            this.newRegisters[15] -= 4;
+                            return false;
+                        }
+                    }
+                }
+                else {
+                    if (loadStoreReg % 4 !== 0) {
+                        this.cpu.newTerminalMessage(this.cpu.toHex(loadStoreReg) + " not an aligned address!", MessageType.Error)
+                        this.newRegisters[15] -= 4;
+                        return false;
+                    }
+                    if (inst.getInstruction() === "str") {
+                        let successful = this.newMainMemory.addData(loadStoreReg, reg)
+                        if (!successful) {
+                            this.cpu.newTerminalMessage("Storing data to an Instruction line not supported!", MessageType.Warning)
+                            this.newRegisters[15] -= 4;
+                            return false;
+                        }
+                    }
+                    else if (inst.getInstruction() === "ldr") {
+                        let content = this.newMainMemory.getMemoryLine(loadStoreReg).getContent();
+                        if (typeof content === 'number') {
+                            this.newRegisters[inst.getOp1().getIndex()] = content;
+                        }
+                        else {
+                            this.cpu.newTerminalMessage("Loading data from an Instruction line not supported!", MessageType.Warning)
+                            this.newRegisters[15] -= 4;
+                            return false;
+                        }
+                    }
+                    if (loadStoreOffset !== undefined) {
+                        loadStoreReg += loadStoreOffset;
+                    }
+                }
+
+                if (op2.getIncrement()) {
+                    this.newRegisters[op2.getRegister().getIndex()] = loadStoreReg;
+                }
+
+            }
+        }
+
+        else if (op2 instanceof LoadImmediateOperand && inst.getInstruction() == "ldr" && this.newMainMemory !== undefined) {
+            let op2Immediate = op2.getImmediate();
+            let content;
+
+            if (op2Immediate instanceof BranchOperand) {
+                let contentAddress = this.newMainMemory?.labelToAddress.get(op2Immediate.getLabel());
+                if (contentAddress !== undefined) {
+                    this.newRegisters[inst.getOp1().getIndex()] = contentAddress;
+                }
+                else {
+                    let variable = this.newMainMemory?.variables.get(op2Immediate.getLabel());
+                    if (variable !== undefined) {
+                        this.newRegisters[inst.getOp1().getIndex()] = variable;
+                    }
+                    else {
+                        this.cpu.newTerminalMessage("Label or Variable \"" + op2Immediate.getLabel() + "\" not found!", MessageType.Error)
+                        this.newRegisters[15] -= 4;
+                        return false;
+                    }
+                }
+
+            }
+            else {
+                content = op2Immediate;
+                this.newRegisters[inst.getOp1().getIndex()] = content;
+            }
+        }
+        else {
+            return false;
+        }
+
+        return true;
     }
 
     arithmetic(inst: Instruction, a: number, b: number, x?: number): number | undefined {
@@ -348,10 +482,6 @@ class CodeExecutionEngine {
         return y;
     }
 
-    loadStore(inst: Instruction,) {
-
-    }
-
     softwareInterrupt() {
         if (this.newRegisters[0] === 0 && this.newRegisters[7] === 1) {
             this.cpu.newTerminalMessage("Program exited successfully!")
@@ -368,13 +498,13 @@ class CodeExecutionEngine {
             let output = "";
 
             for (let x = 0; x < length; x++) {
-                let memoryLine =  this.newMainMemory?.getMemoryLine(address).getContent();
-                if (typeof memoryLine === 'number') {              
-                    output += String.fromCharCode(memoryLine >>> nextLine*8 & 0xff);
+                let memoryLine = this.newMainMemory?.getMemoryLine(address).getContent();
+                if (typeof memoryLine === 'number') {
+                    output += String.fromCharCode(memoryLine >>> nextLine * 8 & 0xff);
                     nextLine++;
                     if (nextLine === 4) {
                         nextLine = 0;
-                        address+=4;
+                        address += 4;
                     }
                 }
 
@@ -454,3 +584,21 @@ class CodeExecutionEngine {
         return x >>> 0;
     }
 }
+
+const AddressingMode = new Map([
+    ["stmea", "ia"],
+    ["ldmfd", "ia"],
+    ["stmfa", "ib"],
+    ["ldmed", "ib"],
+    ["stmed", "da"],
+    ["ldmfa", "da"],
+    ["stmfd", "db"],
+    ["ldmed", "db"]
+]);
+
+const AddressingModeToIncrement = new Map([
+    ["ia", [true, false]],
+    ["ib", [true, true]],
+    ["da", [false, false]],
+    ["db", [false, true]],
+]);

@@ -1,6 +1,9 @@
-import { RegisterOperand, ImmediateOperand, ShifterOperand, BranchOperand, LoadStoreOperand, LoadImmediateOperand } from './Operands'
+import { RegisterOperand, ImmediateOperand, ShifterOperand, BranchOperand, LoadStoreOperand, LoadImmediateOperand, LoadStoreMultipleOperand } from './Operands'
 
-export { Instruction, ArithmeticInstruction, MultiplicationInstruction, LogicInstruction, CopyInstruction, JumpInstruction, LoadStoreInstruction, SoftwareInterrupt }
+export {
+    Instruction, ArithmeticInstruction, MultiplicationInstruction, LogicInstruction, CopyInstruction,
+    JumpInstruction, LoadStoreInstruction, LoadStoreMultipleInstruction, SoftwareInterrupt
+}
 
 class Instruction {
     private instruction: string;
@@ -193,6 +196,42 @@ class LoadStoreInstruction extends Instruction {
         string += " " + this.op1.toString();
         string += ", " + this.op2.toString();
 
+        return string;
+    }
+}
+
+class LoadStoreMultipleInstruction extends Instruction {
+    private op1: RegisterOperand;
+    private op2: LoadStoreMultipleOperand;
+    private addressingMode: string;
+    private increment: boolean;
+
+    constructor(instruction: string,
+        condition: string,
+        op1: RegisterOperand,
+        op2: LoadStoreMultipleOperand,
+        addressingMode: string,
+        increment: boolean,
+        updateStatusRegister: boolean) {
+        super(instruction, condition, updateStatusRegister);
+        this.op1 = op1;
+        this.op2 = op2;
+        this.addressingMode = addressingMode;
+        this.increment = increment;
+    }
+
+    getOp1() { return this.op1; }
+    getOp2() { return this.op2; }
+    getAddressingMode() { return this.addressingMode; }
+    getIncrement() { return this.increment; }
+
+    toString() {
+        let string = this.getInstruction() + this.addressingMode + this.getCondition();
+
+        string += " " + this.op1.toString();
+        if (this.increment) { string += "!"; }
+        string += ", " + this.op2.toString();
+        
         return string;
     }
 }

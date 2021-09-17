@@ -3,19 +3,20 @@
 * start := start=line
 * line := '[\s]*' label=label? '[\s]*' currentLine=directive wso comment=comment? nend nextLine=line |
 *         '[\s]*' label=label? '[\s]*' currentLine=instruction wso comment=comment? nend nextLine=line |
+*         '[\s]*' label=label? '[\s]*' currentLine=variableLine nend nextLine=line |
 *         '[\s]*' label=label? '[\s]*' currentLine=commentLine nend nextLine=line |
 *         '[\s]*' $
-* //directive := directive='.arm' | directive='.text' | directive='.data' | directive='.align' | directive='.global' ws '_start'
-* directive := directive=ascii
-* ascii := '.ascii' ws '"' data='[ -!#-~]*' '"'
-* label := label='[_A-Za-z0-9]+' ':'
-* instruction := instruction=art | instruction=log | instruction=copyJump | instruction=loadStore | instruction=softwareInterrupt
+* directive := directive=ascii | directive='.[aA][rR][mM]' | directive='.[tT][eE][xX][tT]' | directive='.[dD][aA][tT][aA]' |
+*         directive='.[aA][lL][iI][gG][nN]' | directive='.[gG][lL][oO][bB][aA][lL]' ws '_[sS][tT][aA][rR][tT]'
+* ascii := '.[aA][sS][cC][iI][iI]' ws '"' data='[ -!#-~]*' '"'
+* instruction := instruction=art | instruction=log | instruction=copyJump | instruction=loadStore | instruction=loadStoreMultiple | instruction=softwareInterrupt
+* variableLine := variable='[_A-Za-z0-9]+' wso '=' wso '.' wso '-' wso label='[_A-Za-z0-9]+'
 * commentLine := commentLine=comment
-* emptyLine := emptyLine=wso
+* label := label='[_A-Za-z0-9]+' ':'
 * comment := comment='//[ \t\S]*' | comment='\/\*[ \t\S]*\*\/'
 * //------------------------------------------------------------------------------------------------
-* art := inst=artInst cond=condition ws operands=artOp | inst='mul' cond=condition ws operands=artMulOp | inst='mla' cond=condition ws operands=artMlaOp
-* artInst := 'add' | 'adc' | 'sub' | 'sbc' | 'rsb' | 'rsc'
+* art := inst=artInst cond=condition ws operands=artOp | inst='[mM][uU][lL]' cond=condition ws operands=artMulOp | inst='[mM][lL][aA]' cond=condition ws operands=artMlaOp
+* artInst := '[aA][dD][dD]' | '[aA][dD][cC]' | '[sS][uU][bB]' | '[sS][bB][cC]' | '[rR][sS][bB]' | '[rR][sS][cC]'
 * artOp := artOp3 | artOp2
 * artOp2 := op1=regOp wso ',' wso op2=op
 * artOp3 := op1=regOp wso ',' wso op2=regOp wso ',' wso op3=op
@@ -23,41 +24,50 @@
 * artMlaOp := op1=regOp wso ',' wso op2=regOp wso ',' wso op3=regOp wso ',' wso op4=regOp
 * //------------------------------------------------------------------------------------------------
 * log := inst=logInst cond=condition ws operands=logOp | inst=logCmpInst cond=condition ws operands=logOp2
-* logInst := 'and' | 'orr' | 'eor' | 'bic'
-* logCmpInst := 'cmp' | 'cmn' | 'tst' | 'teq'
+* logInst := '[aA][nN][dD]' | '[oO][rR][rR]' | '[eE][oO][rR]' | '[bB][iI][cC]'
+* logCmpInst := '[cC][mM][pP]' | '[cC][mM][nN]' | '[tT][sS][tT]' | '[tT][eE][qQ]'
 * logOp := logOp3 | logOp2
 * logOp2 := op1=regOp wso ',' wso op2=op
 * logOp3 := op1=regOp wso ',' wso op2=regOp wso ',' wso op3=op
 * //------------------------------------------------------------------------------------------------
 * copyJump := inst=copyInst cond=condition ws operands=copyOp | inst=jumpInst1 cond=condition ws operands=jumpOp | inst=jumpInst2 cond=condition ws operands=jumpOp
-* copyInst := 'mov' | 'mvn'
-* jumpInst1 := 'b'
-* jumpInst2 := 'bl'
+* copyInst := '[mM][oO][vV]' | '[mM][vV][nN]'
+* jumpInst1 := '[bB]'
+* jumpInst2 := '[bB][lL]'
 * copyOp := op1=regOp wso ',' wso op2=op
 * jumpOp := op1=branchOp
 * //------------------------------------------------------------------------------------------------
 * loadStore := inst=loadStoreInst cond=condition ws operands=loadStoreOp | inst=loadStoreInst cond=condition ws operands=loadImmediateOp | inst=loadStoreInst cond=condition ws operands=loadImmediateBranchOp
-* loadStoreInst := 'ldr' | 'str'
+* loadStoreInst := '[lL][dD][rR]' | '[sS][tT][rR]'
 * loadStoreOp := op1=regOp wso ',' wso op2=addressingMode
 * loadImmediateOp := op1=regOp wso ',' wso op2=immOp
 * loadImmediateBranchOp := op1=regOp wso ',' wso '=' op2=branchOp
 * //------------------------------------------------------------------------------------------------
-* softwareInterrupt := inst='swi' cond=condition ws operands='#0'
+* loadStoreMultiple := inst=loadStoreMultipleInst addressingMode=loadStoreMultipleAddrMode cond=condition ws operands=loadStoreMultipleOp
+* loadStoreMultipleInst := '[lL][dD][mM]' | '[sS][tT][mM]'
+* loadStoreMultipleAddrMode := '[fF][dD]' | '[fF][aA]' | '[eE][dD]' | '[eE][aA]' | '[iI][aA]' | '[iI][bB]' | '[dD][aA]' | '[dD][bB]' | ''
+* loadStoreMultipleOp := op1=regOp increment='!'? wso ',' wso '{' wso op2=regOpList wso '}'
+* //------------------------------------------------------------------------------------------------
+* softwareInterrupt := inst='[sS][wW][iI]' cond=condition ws operands='#0'
 * //------------------------------------------------------------------------------------------------
 * op := shiftOp=shiftOp | regImmOp=regImmOp
 * regImmOp := regOp=regOp | immOp=immOp
 * shiftOp := opToShift=regImmOp wso ',' wso shiftType=shiftType wso opShift=regImmOp
 * addressingMode := '\[' wso reg=regOp wso '\]' offset=offset? | '\[' wso reg=regOp offset=offset? wso '\]' increment='!'?
 * offset := wso ',' wso sign=sign offset=op
-* regOp := regOp='r[0-9]+' | 'pc' | 'lr'
-* immOp := immType=immType sign=sign base=base number='[0-9a-f]+'
+* regOp := regOp='[rR][0-9]+' | '[pP][cC]' | '[lL][rR]' | '[sS][pP]'
+* regOpRange := op1=regOp wso '-' wso op2=regOp
+* regOpOrRange := op=regOpRange | op=regOp
+* regOpList := op=regOpOrRange wso ',' wso nextOp=regOpList | op=regOpOrRange
+* immOp := immType=immType sign=sign base=base number='[0-9a-fA-F]+'
 * immType := '#' | '='
-* base := '0x' | '0b' | '0o' | ''
+* base := '0[xX]' | '0[bB]' | '0[oO]' | ''
 * sign := '-' | '\+' | ''
 * branchOp := '[_A-Za-z0-9]+'
-* shiftType := 'lsl' | 'asl' | 'lsr' | 'asr' | 'ror' | 'rrx'
-* condition := condType=conditionType updateStatusReg='s'?
-* conditionType := 'eq' | 'ne' | 'hs' | 'cs' | 'lo' | 'cc' | 'mi' | 'pl' | 'vs' | 'vc' | 'hi' | 'ls' | 'ge' | 'lt' | 'gt' | 'le' | 'al' | 'nv' | ''
+* shiftType := '[lL][sS][lL]' | '[aA][sS][lL]' | '[lL][sS][rR]' | '[aA][sS][rR]' | '[rR][oO][rR]' | '[rR][rR][xX]'
+* condition := condType=conditionType updateStatusReg='[sS]'?
+* conditionType := '[eE][qQ]' | '[nN][eE]' | '[hH][sS]' | '[cC][sS]' | '[lL][oO]' | '[cC][cC]' | '[mM][iI]' | '[pP][lL]' | '[vV][sS]' |
+*                  '[vV][cC]' | '[hH][iI]' | '[lL][sS]' | '[gG][eE]' | '[lL][tT]' | '[gG][tT]' | '[lL][eE]' | '[aA][lL]' | '[nN][vV]' | ''
 * //------------------------------------------------------------------------------------------------
 * ws := '[ \t]+'
 * wso := '[ \t]*'
@@ -74,16 +84,23 @@ export enum ASTKinds {
     line_2 = "line_2",
     line_3 = "line_3",
     line_4 = "line_4",
-    directive = "directive",
+    line_5 = "line_5",
+    directive_1 = "directive_1",
+    directive_2 = "directive_2",
+    directive_3 = "directive_3",
+    directive_4 = "directive_4",
+    directive_5 = "directive_5",
+    directive_6 = "directive_6",
     ascii = "ascii",
-    label = "label",
     instruction_1 = "instruction_1",
     instruction_2 = "instruction_2",
     instruction_3 = "instruction_3",
     instruction_4 = "instruction_4",
     instruction_5 = "instruction_5",
+    instruction_6 = "instruction_6",
+    variableLine = "variableLine",
     commentLine = "commentLine",
-    emptyLine = "emptyLine",
+    label = "label",
     comment_1 = "comment_1",
     comment_2 = "comment_2",
     art_1 = "art_1",
@@ -132,6 +149,19 @@ export enum ASTKinds {
     loadStoreOp = "loadStoreOp",
     loadImmediateOp = "loadImmediateOp",
     loadImmediateBranchOp = "loadImmediateBranchOp",
+    loadStoreMultiple = "loadStoreMultiple",
+    loadStoreMultipleInst_1 = "loadStoreMultipleInst_1",
+    loadStoreMultipleInst_2 = "loadStoreMultipleInst_2",
+    loadStoreMultipleAddrMode_1 = "loadStoreMultipleAddrMode_1",
+    loadStoreMultipleAddrMode_2 = "loadStoreMultipleAddrMode_2",
+    loadStoreMultipleAddrMode_3 = "loadStoreMultipleAddrMode_3",
+    loadStoreMultipleAddrMode_4 = "loadStoreMultipleAddrMode_4",
+    loadStoreMultipleAddrMode_5 = "loadStoreMultipleAddrMode_5",
+    loadStoreMultipleAddrMode_6 = "loadStoreMultipleAddrMode_6",
+    loadStoreMultipleAddrMode_7 = "loadStoreMultipleAddrMode_7",
+    loadStoreMultipleAddrMode_8 = "loadStoreMultipleAddrMode_8",
+    loadStoreMultipleAddrMode_9 = "loadStoreMultipleAddrMode_9",
+    loadStoreMultipleOp = "loadStoreMultipleOp",
     softwareInterrupt = "softwareInterrupt",
     op_1 = "op_1",
     op_2 = "op_2",
@@ -144,6 +174,12 @@ export enum ASTKinds {
     regOp_1 = "regOp_1",
     regOp_2 = "regOp_2",
     regOp_3 = "regOp_3",
+    regOp_4 = "regOp_4",
+    regOpRange = "regOpRange",
+    regOpOrRange_1 = "regOpOrRange_1",
+    regOpOrRange_2 = "regOpOrRange_2",
+    regOpList_1 = "regOpList_1",
+    regOpList_2 = "regOpList_2",
     immOp = "immOp",
     immType_1 = "immType_1",
     immType_2 = "immType_2",
@@ -191,7 +227,7 @@ export interface start {
     kind: ASTKinds.start;
     start: line;
 }
-export type line = line_1 | line_2 | line_3 | line_4;
+export type line = line_1 | line_2 | line_3 | line_4 | line_5;
 export interface line_1 {
     kind: ASTKinds.line_1;
     label: Nullable<label>;
@@ -209,25 +245,48 @@ export interface line_2 {
 export interface line_3 {
     kind: ASTKinds.line_3;
     label: Nullable<label>;
-    currentLine: commentLine;
+    currentLine: variableLine;
     nextLine: line;
 }
 export interface line_4 {
     kind: ASTKinds.line_4;
+    label: Nullable<label>;
+    currentLine: commentLine;
+    nextLine: line;
 }
-export interface directive {
-    kind: ASTKinds.directive;
+export interface line_5 {
+    kind: ASTKinds.line_5;
+}
+export type directive = directive_1 | directive_2 | directive_3 | directive_4 | directive_5 | directive_6;
+export interface directive_1 {
+    kind: ASTKinds.directive_1;
     directive: ascii;
+}
+export interface directive_2 {
+    kind: ASTKinds.directive_2;
+    directive: string;
+}
+export interface directive_3 {
+    kind: ASTKinds.directive_3;
+    directive: string;
+}
+export interface directive_4 {
+    kind: ASTKinds.directive_4;
+    directive: string;
+}
+export interface directive_5 {
+    kind: ASTKinds.directive_5;
+    directive: string;
+}
+export interface directive_6 {
+    kind: ASTKinds.directive_6;
+    directive: string;
 }
 export interface ascii {
     kind: ASTKinds.ascii;
     data: string;
 }
-export interface label {
-    kind: ASTKinds.label;
-    label: string;
-}
-export type instruction = instruction_1 | instruction_2 | instruction_3 | instruction_4 | instruction_5;
+export type instruction = instruction_1 | instruction_2 | instruction_3 | instruction_4 | instruction_5 | instruction_6;
 export interface instruction_1 {
     kind: ASTKinds.instruction_1;
     instruction: art;
@@ -246,15 +305,24 @@ export interface instruction_4 {
 }
 export interface instruction_5 {
     kind: ASTKinds.instruction_5;
+    instruction: loadStoreMultiple;
+}
+export interface instruction_6 {
+    kind: ASTKinds.instruction_6;
     instruction: softwareInterrupt;
+}
+export interface variableLine {
+    kind: ASTKinds.variableLine;
+    variable: string;
+    label: string;
 }
 export interface commentLine {
     kind: ASTKinds.commentLine;
     commentLine: comment;
 }
-export interface emptyLine {
-    kind: ASTKinds.emptyLine;
-    emptyLine: wso;
+export interface label {
+    kind: ASTKinds.label;
+    label: string;
 }
 export type comment = comment_1 | comment_2;
 export interface comment_1 {
@@ -425,6 +493,32 @@ export interface loadImmediateBranchOp {
     op1: regOp;
     op2: branchOp;
 }
+export interface loadStoreMultiple {
+    kind: ASTKinds.loadStoreMultiple;
+    inst: loadStoreMultipleInst;
+    addressingMode: loadStoreMultipleAddrMode;
+    cond: condition;
+    operands: loadStoreMultipleOp;
+}
+export type loadStoreMultipleInst = loadStoreMultipleInst_1 | loadStoreMultipleInst_2;
+export type loadStoreMultipleInst_1 = string;
+export type loadStoreMultipleInst_2 = string;
+export type loadStoreMultipleAddrMode = loadStoreMultipleAddrMode_1 | loadStoreMultipleAddrMode_2 | loadStoreMultipleAddrMode_3 | loadStoreMultipleAddrMode_4 | loadStoreMultipleAddrMode_5 | loadStoreMultipleAddrMode_6 | loadStoreMultipleAddrMode_7 | loadStoreMultipleAddrMode_8 | loadStoreMultipleAddrMode_9;
+export type loadStoreMultipleAddrMode_1 = string;
+export type loadStoreMultipleAddrMode_2 = string;
+export type loadStoreMultipleAddrMode_3 = string;
+export type loadStoreMultipleAddrMode_4 = string;
+export type loadStoreMultipleAddrMode_5 = string;
+export type loadStoreMultipleAddrMode_6 = string;
+export type loadStoreMultipleAddrMode_7 = string;
+export type loadStoreMultipleAddrMode_8 = string;
+export type loadStoreMultipleAddrMode_9 = string;
+export interface loadStoreMultipleOp {
+    kind: ASTKinds.loadStoreMultipleOp;
+    op1: regOp;
+    increment: Nullable<string>;
+    op2: regOpList;
+}
 export interface softwareInterrupt {
     kind: ASTKinds.softwareInterrupt;
     inst: string;
@@ -472,13 +566,38 @@ export interface offset {
     sign: sign;
     offset: op;
 }
-export type regOp = regOp_1 | regOp_2 | regOp_3;
+export type regOp = regOp_1 | regOp_2 | regOp_3 | regOp_4;
 export interface regOp_1 {
     kind: ASTKinds.regOp_1;
     regOp: string;
 }
 export type regOp_2 = string;
 export type regOp_3 = string;
+export type regOp_4 = string;
+export interface regOpRange {
+    kind: ASTKinds.regOpRange;
+    op1: regOp;
+    op2: regOp;
+}
+export type regOpOrRange = regOpOrRange_1 | regOpOrRange_2;
+export interface regOpOrRange_1 {
+    kind: ASTKinds.regOpOrRange_1;
+    op: regOpRange;
+}
+export interface regOpOrRange_2 {
+    kind: ASTKinds.regOpOrRange_2;
+    op: regOp;
+}
+export type regOpList = regOpList_1 | regOpList_2;
+export interface regOpList_1 {
+    kind: ASTKinds.regOpList_1;
+    op: regOpOrRange;
+    nextOp: regOpList;
+}
+export interface regOpList_2 {
+    kind: ASTKinds.regOpList_2;
+    op: regOpOrRange;
+}
 export interface immOp {
     kind: ASTKinds.immOp;
     immType: immType;
@@ -572,6 +691,7 @@ export class Parser {
             () => this.matchline_2($$dpth + 1, $$cr),
             () => this.matchline_3($$dpth + 1, $$cr),
             () => this.matchline_4($$dpth + 1, $$cr),
+            () => this.matchline_5($$dpth + 1, $$cr),
         ]);
     }
     public matchline_1($$dpth: number, $$cr?: ErrorTracker): Nullable<line_1> {
@@ -624,14 +744,14 @@ export class Parser {
         return this.run<line_3>($$dpth,
             () => {
                 let $scope$label: Nullable<Nullable<label>>;
-                let $scope$currentLine: Nullable<commentLine>;
+                let $scope$currentLine: Nullable<variableLine>;
                 let $scope$nextLine: Nullable<line>;
                 let $$res: Nullable<line_3> = null;
                 if (true
                     && this.regexAccept(String.raw`(?:[\s]*)`, $$dpth + 1, $$cr) !== null
                     && (($scope$label = this.matchlabel($$dpth + 1, $$cr)) || true)
                     && this.regexAccept(String.raw`(?:[\s]*)`, $$dpth + 1, $$cr) !== null
-                    && ($scope$currentLine = this.matchcommentLine($$dpth + 1, $$cr)) !== null
+                    && ($scope$currentLine = this.matchvariableLine($$dpth + 1, $$cr)) !== null
                     && this.matchnend($$dpth + 1, $$cr) !== null
                     && ($scope$nextLine = this.matchline($$dpth + 1, $$cr)) !== null
                 ) {
@@ -643,25 +763,122 @@ export class Parser {
     public matchline_4($$dpth: number, $$cr?: ErrorTracker): Nullable<line_4> {
         return this.run<line_4>($$dpth,
             () => {
+                let $scope$label: Nullable<Nullable<label>>;
+                let $scope$currentLine: Nullable<commentLine>;
+                let $scope$nextLine: Nullable<line>;
                 let $$res: Nullable<line_4> = null;
+                if (true
+                    && this.regexAccept(String.raw`(?:[\s]*)`, $$dpth + 1, $$cr) !== null
+                    && (($scope$label = this.matchlabel($$dpth + 1, $$cr)) || true)
+                    && this.regexAccept(String.raw`(?:[\s]*)`, $$dpth + 1, $$cr) !== null
+                    && ($scope$currentLine = this.matchcommentLine($$dpth + 1, $$cr)) !== null
+                    && this.matchnend($$dpth + 1, $$cr) !== null
+                    && ($scope$nextLine = this.matchline($$dpth + 1, $$cr)) !== null
+                ) {
+                    $$res = {kind: ASTKinds.line_4, label: $scope$label, currentLine: $scope$currentLine, nextLine: $scope$nextLine};
+                }
+                return $$res;
+            });
+    }
+    public matchline_5($$dpth: number, $$cr?: ErrorTracker): Nullable<line_5> {
+        return this.run<line_5>($$dpth,
+            () => {
+                let $$res: Nullable<line_5> = null;
                 if (true
                     && this.regexAccept(String.raw`(?:[\s]*)`, $$dpth + 1, $$cr) !== null
                     && this.match$EOF($$cr) !== null
                 ) {
-                    $$res = {kind: ASTKinds.line_4, };
+                    $$res = {kind: ASTKinds.line_5, };
                 }
                 return $$res;
             });
     }
     public matchdirective($$dpth: number, $$cr?: ErrorTracker): Nullable<directive> {
-        return this.run<directive>($$dpth,
+        return this.choice<directive>([
+            () => this.matchdirective_1($$dpth + 1, $$cr),
+            () => this.matchdirective_2($$dpth + 1, $$cr),
+            () => this.matchdirective_3($$dpth + 1, $$cr),
+            () => this.matchdirective_4($$dpth + 1, $$cr),
+            () => this.matchdirective_5($$dpth + 1, $$cr),
+            () => this.matchdirective_6($$dpth + 1, $$cr),
+        ]);
+    }
+    public matchdirective_1($$dpth: number, $$cr?: ErrorTracker): Nullable<directive_1> {
+        return this.run<directive_1>($$dpth,
             () => {
                 let $scope$directive: Nullable<ascii>;
-                let $$res: Nullable<directive> = null;
+                let $$res: Nullable<directive_1> = null;
                 if (true
                     && ($scope$directive = this.matchascii($$dpth + 1, $$cr)) !== null
                 ) {
-                    $$res = {kind: ASTKinds.directive, directive: $scope$directive};
+                    $$res = {kind: ASTKinds.directive_1, directive: $scope$directive};
+                }
+                return $$res;
+            });
+    }
+    public matchdirective_2($$dpth: number, $$cr?: ErrorTracker): Nullable<directive_2> {
+        return this.run<directive_2>($$dpth,
+            () => {
+                let $scope$directive: Nullable<string>;
+                let $$res: Nullable<directive_2> = null;
+                if (true
+                    && ($scope$directive = this.regexAccept(String.raw`(?:.[aA][rR][mM])`, $$dpth + 1, $$cr)) !== null
+                ) {
+                    $$res = {kind: ASTKinds.directive_2, directive: $scope$directive};
+                }
+                return $$res;
+            });
+    }
+    public matchdirective_3($$dpth: number, $$cr?: ErrorTracker): Nullable<directive_3> {
+        return this.run<directive_3>($$dpth,
+            () => {
+                let $scope$directive: Nullable<string>;
+                let $$res: Nullable<directive_3> = null;
+                if (true
+                    && ($scope$directive = this.regexAccept(String.raw`(?:.[tT][eE][xX][tT])`, $$dpth + 1, $$cr)) !== null
+                ) {
+                    $$res = {kind: ASTKinds.directive_3, directive: $scope$directive};
+                }
+                return $$res;
+            });
+    }
+    public matchdirective_4($$dpth: number, $$cr?: ErrorTracker): Nullable<directive_4> {
+        return this.run<directive_4>($$dpth,
+            () => {
+                let $scope$directive: Nullable<string>;
+                let $$res: Nullable<directive_4> = null;
+                if (true
+                    && ($scope$directive = this.regexAccept(String.raw`(?:.[dD][aA][tT][aA])`, $$dpth + 1, $$cr)) !== null
+                ) {
+                    $$res = {kind: ASTKinds.directive_4, directive: $scope$directive};
+                }
+                return $$res;
+            });
+    }
+    public matchdirective_5($$dpth: number, $$cr?: ErrorTracker): Nullable<directive_5> {
+        return this.run<directive_5>($$dpth,
+            () => {
+                let $scope$directive: Nullable<string>;
+                let $$res: Nullable<directive_5> = null;
+                if (true
+                    && ($scope$directive = this.regexAccept(String.raw`(?:.[aA][lL][iI][gG][nN])`, $$dpth + 1, $$cr)) !== null
+                ) {
+                    $$res = {kind: ASTKinds.directive_5, directive: $scope$directive};
+                }
+                return $$res;
+            });
+    }
+    public matchdirective_6($$dpth: number, $$cr?: ErrorTracker): Nullable<directive_6> {
+        return this.run<directive_6>($$dpth,
+            () => {
+                let $scope$directive: Nullable<string>;
+                let $$res: Nullable<directive_6> = null;
+                if (true
+                    && ($scope$directive = this.regexAccept(String.raw`(?:.[gG][lL][oO][bB][aA][lL])`, $$dpth + 1, $$cr)) !== null
+                    && this.matchws($$dpth + 1, $$cr) !== null
+                    && this.regexAccept(String.raw`(?:_[sS][tT][aA][rR][tT])`, $$dpth + 1, $$cr) !== null
+                ) {
+                    $$res = {kind: ASTKinds.directive_6, directive: $scope$directive};
                 }
                 return $$res;
             });
@@ -672,27 +889,13 @@ export class Parser {
                 let $scope$data: Nullable<string>;
                 let $$res: Nullable<ascii> = null;
                 if (true
-                    && this.regexAccept(String.raw`(?:.ascii)`, $$dpth + 1, $$cr) !== null
+                    && this.regexAccept(String.raw`(?:.[aA][sS][cC][iI][iI])`, $$dpth + 1, $$cr) !== null
                     && this.matchws($$dpth + 1, $$cr) !== null
                     && this.regexAccept(String.raw`(?:")`, $$dpth + 1, $$cr) !== null
                     && ($scope$data = this.regexAccept(String.raw`(?:[ -!#-~]*)`, $$dpth + 1, $$cr)) !== null
                     && this.regexAccept(String.raw`(?:")`, $$dpth + 1, $$cr) !== null
                 ) {
                     $$res = {kind: ASTKinds.ascii, data: $scope$data};
-                }
-                return $$res;
-            });
-    }
-    public matchlabel($$dpth: number, $$cr?: ErrorTracker): Nullable<label> {
-        return this.run<label>($$dpth,
-            () => {
-                let $scope$label: Nullable<string>;
-                let $$res: Nullable<label> = null;
-                if (true
-                    && ($scope$label = this.regexAccept(String.raw`(?:[_A-Za-z0-9]+)`, $$dpth + 1, $$cr)) !== null
-                    && this.regexAccept(String.raw`(?::)`, $$dpth + 1, $$cr) !== null
-                ) {
-                    $$res = {kind: ASTKinds.label, label: $scope$label};
                 }
                 return $$res;
             });
@@ -704,6 +907,7 @@ export class Parser {
             () => this.matchinstruction_3($$dpth + 1, $$cr),
             () => this.matchinstruction_4($$dpth + 1, $$cr),
             () => this.matchinstruction_5($$dpth + 1, $$cr),
+            () => this.matchinstruction_6($$dpth + 1, $$cr),
         ]);
     }
     public matchinstruction_1($$dpth: number, $$cr?: ErrorTracker): Nullable<instruction_1> {
@@ -761,12 +965,47 @@ export class Parser {
     public matchinstruction_5($$dpth: number, $$cr?: ErrorTracker): Nullable<instruction_5> {
         return this.run<instruction_5>($$dpth,
             () => {
-                let $scope$instruction: Nullable<softwareInterrupt>;
+                let $scope$instruction: Nullable<loadStoreMultiple>;
                 let $$res: Nullable<instruction_5> = null;
+                if (true
+                    && ($scope$instruction = this.matchloadStoreMultiple($$dpth + 1, $$cr)) !== null
+                ) {
+                    $$res = {kind: ASTKinds.instruction_5, instruction: $scope$instruction};
+                }
+                return $$res;
+            });
+    }
+    public matchinstruction_6($$dpth: number, $$cr?: ErrorTracker): Nullable<instruction_6> {
+        return this.run<instruction_6>($$dpth,
+            () => {
+                let $scope$instruction: Nullable<softwareInterrupt>;
+                let $$res: Nullable<instruction_6> = null;
                 if (true
                     && ($scope$instruction = this.matchsoftwareInterrupt($$dpth + 1, $$cr)) !== null
                 ) {
-                    $$res = {kind: ASTKinds.instruction_5, instruction: $scope$instruction};
+                    $$res = {kind: ASTKinds.instruction_6, instruction: $scope$instruction};
+                }
+                return $$res;
+            });
+    }
+    public matchvariableLine($$dpth: number, $$cr?: ErrorTracker): Nullable<variableLine> {
+        return this.run<variableLine>($$dpth,
+            () => {
+                let $scope$variable: Nullable<string>;
+                let $scope$label: Nullable<string>;
+                let $$res: Nullable<variableLine> = null;
+                if (true
+                    && ($scope$variable = this.regexAccept(String.raw`(?:[_A-Za-z0-9]+)`, $$dpth + 1, $$cr)) !== null
+                    && this.matchwso($$dpth + 1, $$cr) !== null
+                    && this.regexAccept(String.raw`(?:=)`, $$dpth + 1, $$cr) !== null
+                    && this.matchwso($$dpth + 1, $$cr) !== null
+                    && this.regexAccept(String.raw`(?:.)`, $$dpth + 1, $$cr) !== null
+                    && this.matchwso($$dpth + 1, $$cr) !== null
+                    && this.regexAccept(String.raw`(?:-)`, $$dpth + 1, $$cr) !== null
+                    && this.matchwso($$dpth + 1, $$cr) !== null
+                    && ($scope$label = this.regexAccept(String.raw`(?:[_A-Za-z0-9]+)`, $$dpth + 1, $$cr)) !== null
+                ) {
+                    $$res = {kind: ASTKinds.variableLine, variable: $scope$variable, label: $scope$label};
                 }
                 return $$res;
             });
@@ -784,15 +1023,16 @@ export class Parser {
                 return $$res;
             });
     }
-    public matchemptyLine($$dpth: number, $$cr?: ErrorTracker): Nullable<emptyLine> {
-        return this.run<emptyLine>($$dpth,
+    public matchlabel($$dpth: number, $$cr?: ErrorTracker): Nullable<label> {
+        return this.run<label>($$dpth,
             () => {
-                let $scope$emptyLine: Nullable<wso>;
-                let $$res: Nullable<emptyLine> = null;
+                let $scope$label: Nullable<string>;
+                let $$res: Nullable<label> = null;
                 if (true
-                    && ($scope$emptyLine = this.matchwso($$dpth + 1, $$cr)) !== null
+                    && ($scope$label = this.regexAccept(String.raw`(?:[_A-Za-z0-9]+)`, $$dpth + 1, $$cr)) !== null
+                    && this.regexAccept(String.raw`(?::)`, $$dpth + 1, $$cr) !== null
                 ) {
-                    $$res = {kind: ASTKinds.emptyLine, emptyLine: $scope$emptyLine};
+                    $$res = {kind: ASTKinds.label, label: $scope$label};
                 }
                 return $$res;
             });
@@ -862,7 +1102,7 @@ export class Parser {
                 let $scope$operands: Nullable<artMulOp>;
                 let $$res: Nullable<art_2> = null;
                 if (true
-                    && ($scope$inst = this.regexAccept(String.raw`(?:mul)`, $$dpth + 1, $$cr)) !== null
+                    && ($scope$inst = this.regexAccept(String.raw`(?:[mM][uU][lL])`, $$dpth + 1, $$cr)) !== null
                     && ($scope$cond = this.matchcondition($$dpth + 1, $$cr)) !== null
                     && this.matchws($$dpth + 1, $$cr) !== null
                     && ($scope$operands = this.matchartMulOp($$dpth + 1, $$cr)) !== null
@@ -880,7 +1120,7 @@ export class Parser {
                 let $scope$operands: Nullable<artMlaOp>;
                 let $$res: Nullable<art_3> = null;
                 if (true
-                    && ($scope$inst = this.regexAccept(String.raw`(?:mla)`, $$dpth + 1, $$cr)) !== null
+                    && ($scope$inst = this.regexAccept(String.raw`(?:[mM][lL][aA])`, $$dpth + 1, $$cr)) !== null
                     && ($scope$cond = this.matchcondition($$dpth + 1, $$cr)) !== null
                     && this.matchws($$dpth + 1, $$cr) !== null
                     && ($scope$operands = this.matchartMlaOp($$dpth + 1, $$cr)) !== null
@@ -901,22 +1141,22 @@ export class Parser {
         ]);
     }
     public matchartInst_1($$dpth: number, $$cr?: ErrorTracker): Nullable<artInst_1> {
-        return this.regexAccept(String.raw`(?:add)`, $$dpth + 1, $$cr);
+        return this.regexAccept(String.raw`(?:[aA][dD][dD])`, $$dpth + 1, $$cr);
     }
     public matchartInst_2($$dpth: number, $$cr?: ErrorTracker): Nullable<artInst_2> {
-        return this.regexAccept(String.raw`(?:adc)`, $$dpth + 1, $$cr);
+        return this.regexAccept(String.raw`(?:[aA][dD][cC])`, $$dpth + 1, $$cr);
     }
     public matchartInst_3($$dpth: number, $$cr?: ErrorTracker): Nullable<artInst_3> {
-        return this.regexAccept(String.raw`(?:sub)`, $$dpth + 1, $$cr);
+        return this.regexAccept(String.raw`(?:[sS][uU][bB])`, $$dpth + 1, $$cr);
     }
     public matchartInst_4($$dpth: number, $$cr?: ErrorTracker): Nullable<artInst_4> {
-        return this.regexAccept(String.raw`(?:sbc)`, $$dpth + 1, $$cr);
+        return this.regexAccept(String.raw`(?:[sS][bB][cC])`, $$dpth + 1, $$cr);
     }
     public matchartInst_5($$dpth: number, $$cr?: ErrorTracker): Nullable<artInst_5> {
-        return this.regexAccept(String.raw`(?:rsb)`, $$dpth + 1, $$cr);
+        return this.regexAccept(String.raw`(?:[rR][sS][bB])`, $$dpth + 1, $$cr);
     }
     public matchartInst_6($$dpth: number, $$cr?: ErrorTracker): Nullable<artInst_6> {
-        return this.regexAccept(String.raw`(?:rsc)`, $$dpth + 1, $$cr);
+        return this.regexAccept(String.raw`(?:[rR][sS][cC])`, $$dpth + 1, $$cr);
     }
     public matchartOp($$dpth: number, $$cr?: ErrorTracker): Nullable<artOp> {
         return this.choice<artOp>([
@@ -1073,16 +1313,16 @@ export class Parser {
         ]);
     }
     public matchlogInst_1($$dpth: number, $$cr?: ErrorTracker): Nullable<logInst_1> {
-        return this.regexAccept(String.raw`(?:and)`, $$dpth + 1, $$cr);
+        return this.regexAccept(String.raw`(?:[aA][nN][dD])`, $$dpth + 1, $$cr);
     }
     public matchlogInst_2($$dpth: number, $$cr?: ErrorTracker): Nullable<logInst_2> {
-        return this.regexAccept(String.raw`(?:orr)`, $$dpth + 1, $$cr);
+        return this.regexAccept(String.raw`(?:[oO][rR][rR])`, $$dpth + 1, $$cr);
     }
     public matchlogInst_3($$dpth: number, $$cr?: ErrorTracker): Nullable<logInst_3> {
-        return this.regexAccept(String.raw`(?:eor)`, $$dpth + 1, $$cr);
+        return this.regexAccept(String.raw`(?:[eE][oO][rR])`, $$dpth + 1, $$cr);
     }
     public matchlogInst_4($$dpth: number, $$cr?: ErrorTracker): Nullable<logInst_4> {
-        return this.regexAccept(String.raw`(?:bic)`, $$dpth + 1, $$cr);
+        return this.regexAccept(String.raw`(?:[bB][iI][cC])`, $$dpth + 1, $$cr);
     }
     public matchlogCmpInst($$dpth: number, $$cr?: ErrorTracker): Nullable<logCmpInst> {
         return this.choice<logCmpInst>([
@@ -1093,16 +1333,16 @@ export class Parser {
         ]);
     }
     public matchlogCmpInst_1($$dpth: number, $$cr?: ErrorTracker): Nullable<logCmpInst_1> {
-        return this.regexAccept(String.raw`(?:cmp)`, $$dpth + 1, $$cr);
+        return this.regexAccept(String.raw`(?:[cC][mM][pP])`, $$dpth + 1, $$cr);
     }
     public matchlogCmpInst_2($$dpth: number, $$cr?: ErrorTracker): Nullable<logCmpInst_2> {
-        return this.regexAccept(String.raw`(?:cmn)`, $$dpth + 1, $$cr);
+        return this.regexAccept(String.raw`(?:[cC][mM][nN])`, $$dpth + 1, $$cr);
     }
     public matchlogCmpInst_3($$dpth: number, $$cr?: ErrorTracker): Nullable<logCmpInst_3> {
-        return this.regexAccept(String.raw`(?:tst)`, $$dpth + 1, $$cr);
+        return this.regexAccept(String.raw`(?:[tT][sS][tT])`, $$dpth + 1, $$cr);
     }
     public matchlogCmpInst_4($$dpth: number, $$cr?: ErrorTracker): Nullable<logCmpInst_4> {
-        return this.regexAccept(String.raw`(?:teq)`, $$dpth + 1, $$cr);
+        return this.regexAccept(String.raw`(?:[tT][eE][qQ])`, $$dpth + 1, $$cr);
     }
     public matchlogOp($$dpth: number, $$cr?: ErrorTracker): Nullable<logOp> {
         return this.choice<logOp>([
@@ -1225,16 +1465,16 @@ export class Parser {
         ]);
     }
     public matchcopyInst_1($$dpth: number, $$cr?: ErrorTracker): Nullable<copyInst_1> {
-        return this.regexAccept(String.raw`(?:mov)`, $$dpth + 1, $$cr);
+        return this.regexAccept(String.raw`(?:[mM][oO][vV])`, $$dpth + 1, $$cr);
     }
     public matchcopyInst_2($$dpth: number, $$cr?: ErrorTracker): Nullable<copyInst_2> {
-        return this.regexAccept(String.raw`(?:mvn)`, $$dpth + 1, $$cr);
+        return this.regexAccept(String.raw`(?:[mM][vV][nN])`, $$dpth + 1, $$cr);
     }
     public matchjumpInst1($$dpth: number, $$cr?: ErrorTracker): Nullable<jumpInst1> {
-        return this.regexAccept(String.raw`(?:b)`, $$dpth + 1, $$cr);
+        return this.regexAccept(String.raw`(?:[bB])`, $$dpth + 1, $$cr);
     }
     public matchjumpInst2($$dpth: number, $$cr?: ErrorTracker): Nullable<jumpInst2> {
-        return this.regexAccept(String.raw`(?:bl)`, $$dpth + 1, $$cr);
+        return this.regexAccept(String.raw`(?:[bB][lL])`, $$dpth + 1, $$cr);
     }
     public matchcopyOp($$dpth: number, $$cr?: ErrorTracker): Nullable<copyOp> {
         return this.run<copyOp>($$dpth,
@@ -1335,10 +1575,10 @@ export class Parser {
         ]);
     }
     public matchloadStoreInst_1($$dpth: number, $$cr?: ErrorTracker): Nullable<loadStoreInst_1> {
-        return this.regexAccept(String.raw`(?:ldr)`, $$dpth + 1, $$cr);
+        return this.regexAccept(String.raw`(?:[lL][dD][rR])`, $$dpth + 1, $$cr);
     }
     public matchloadStoreInst_2($$dpth: number, $$cr?: ErrorTracker): Nullable<loadStoreInst_2> {
-        return this.regexAccept(String.raw`(?:str)`, $$dpth + 1, $$cr);
+        return this.regexAccept(String.raw`(?:[sS][tT][rR])`, $$dpth + 1, $$cr);
     }
     public matchloadStoreOp($$dpth: number, $$cr?: ErrorTracker): Nullable<loadStoreOp> {
         return this.run<loadStoreOp>($$dpth,
@@ -1395,6 +1635,102 @@ export class Parser {
                 return $$res;
             });
     }
+    public matchloadStoreMultiple($$dpth: number, $$cr?: ErrorTracker): Nullable<loadStoreMultiple> {
+        return this.run<loadStoreMultiple>($$dpth,
+            () => {
+                let $scope$inst: Nullable<loadStoreMultipleInst>;
+                let $scope$addressingMode: Nullable<loadStoreMultipleAddrMode>;
+                let $scope$cond: Nullable<condition>;
+                let $scope$operands: Nullable<loadStoreMultipleOp>;
+                let $$res: Nullable<loadStoreMultiple> = null;
+                if (true
+                    && ($scope$inst = this.matchloadStoreMultipleInst($$dpth + 1, $$cr)) !== null
+                    && ($scope$addressingMode = this.matchloadStoreMultipleAddrMode($$dpth + 1, $$cr)) !== null
+                    && ($scope$cond = this.matchcondition($$dpth + 1, $$cr)) !== null
+                    && this.matchws($$dpth + 1, $$cr) !== null
+                    && ($scope$operands = this.matchloadStoreMultipleOp($$dpth + 1, $$cr)) !== null
+                ) {
+                    $$res = {kind: ASTKinds.loadStoreMultiple, inst: $scope$inst, addressingMode: $scope$addressingMode, cond: $scope$cond, operands: $scope$operands};
+                }
+                return $$res;
+            });
+    }
+    public matchloadStoreMultipleInst($$dpth: number, $$cr?: ErrorTracker): Nullable<loadStoreMultipleInst> {
+        return this.choice<loadStoreMultipleInst>([
+            () => this.matchloadStoreMultipleInst_1($$dpth + 1, $$cr),
+            () => this.matchloadStoreMultipleInst_2($$dpth + 1, $$cr),
+        ]);
+    }
+    public matchloadStoreMultipleInst_1($$dpth: number, $$cr?: ErrorTracker): Nullable<loadStoreMultipleInst_1> {
+        return this.regexAccept(String.raw`(?:[lL][dD][mM])`, $$dpth + 1, $$cr);
+    }
+    public matchloadStoreMultipleInst_2($$dpth: number, $$cr?: ErrorTracker): Nullable<loadStoreMultipleInst_2> {
+        return this.regexAccept(String.raw`(?:[sS][tT][mM])`, $$dpth + 1, $$cr);
+    }
+    public matchloadStoreMultipleAddrMode($$dpth: number, $$cr?: ErrorTracker): Nullable<loadStoreMultipleAddrMode> {
+        return this.choice<loadStoreMultipleAddrMode>([
+            () => this.matchloadStoreMultipleAddrMode_1($$dpth + 1, $$cr),
+            () => this.matchloadStoreMultipleAddrMode_2($$dpth + 1, $$cr),
+            () => this.matchloadStoreMultipleAddrMode_3($$dpth + 1, $$cr),
+            () => this.matchloadStoreMultipleAddrMode_4($$dpth + 1, $$cr),
+            () => this.matchloadStoreMultipleAddrMode_5($$dpth + 1, $$cr),
+            () => this.matchloadStoreMultipleAddrMode_6($$dpth + 1, $$cr),
+            () => this.matchloadStoreMultipleAddrMode_7($$dpth + 1, $$cr),
+            () => this.matchloadStoreMultipleAddrMode_8($$dpth + 1, $$cr),
+            () => this.matchloadStoreMultipleAddrMode_9($$dpth + 1, $$cr),
+        ]);
+    }
+    public matchloadStoreMultipleAddrMode_1($$dpth: number, $$cr?: ErrorTracker): Nullable<loadStoreMultipleAddrMode_1> {
+        return this.regexAccept(String.raw`(?:[fF][dD])`, $$dpth + 1, $$cr);
+    }
+    public matchloadStoreMultipleAddrMode_2($$dpth: number, $$cr?: ErrorTracker): Nullable<loadStoreMultipleAddrMode_2> {
+        return this.regexAccept(String.raw`(?:[fF][aA])`, $$dpth + 1, $$cr);
+    }
+    public matchloadStoreMultipleAddrMode_3($$dpth: number, $$cr?: ErrorTracker): Nullable<loadStoreMultipleAddrMode_3> {
+        return this.regexAccept(String.raw`(?:[eE][dD])`, $$dpth + 1, $$cr);
+    }
+    public matchloadStoreMultipleAddrMode_4($$dpth: number, $$cr?: ErrorTracker): Nullable<loadStoreMultipleAddrMode_4> {
+        return this.regexAccept(String.raw`(?:[eE][aA])`, $$dpth + 1, $$cr);
+    }
+    public matchloadStoreMultipleAddrMode_5($$dpth: number, $$cr?: ErrorTracker): Nullable<loadStoreMultipleAddrMode_5> {
+        return this.regexAccept(String.raw`(?:[iI][aA])`, $$dpth + 1, $$cr);
+    }
+    public matchloadStoreMultipleAddrMode_6($$dpth: number, $$cr?: ErrorTracker): Nullable<loadStoreMultipleAddrMode_6> {
+        return this.regexAccept(String.raw`(?:[iI][bB])`, $$dpth + 1, $$cr);
+    }
+    public matchloadStoreMultipleAddrMode_7($$dpth: number, $$cr?: ErrorTracker): Nullable<loadStoreMultipleAddrMode_7> {
+        return this.regexAccept(String.raw`(?:[dD][aA])`, $$dpth + 1, $$cr);
+    }
+    public matchloadStoreMultipleAddrMode_8($$dpth: number, $$cr?: ErrorTracker): Nullable<loadStoreMultipleAddrMode_8> {
+        return this.regexAccept(String.raw`(?:[dD][bB])`, $$dpth + 1, $$cr);
+    }
+    public matchloadStoreMultipleAddrMode_9($$dpth: number, $$cr?: ErrorTracker): Nullable<loadStoreMultipleAddrMode_9> {
+        return this.regexAccept(String.raw`(?:)`, $$dpth + 1, $$cr);
+    }
+    public matchloadStoreMultipleOp($$dpth: number, $$cr?: ErrorTracker): Nullable<loadStoreMultipleOp> {
+        return this.run<loadStoreMultipleOp>($$dpth,
+            () => {
+                let $scope$op1: Nullable<regOp>;
+                let $scope$increment: Nullable<Nullable<string>>;
+                let $scope$op2: Nullable<regOpList>;
+                let $$res: Nullable<loadStoreMultipleOp> = null;
+                if (true
+                    && ($scope$op1 = this.matchregOp($$dpth + 1, $$cr)) !== null
+                    && (($scope$increment = this.regexAccept(String.raw`(?:!)`, $$dpth + 1, $$cr)) || true)
+                    && this.matchwso($$dpth + 1, $$cr) !== null
+                    && this.regexAccept(String.raw`(?:,)`, $$dpth + 1, $$cr) !== null
+                    && this.matchwso($$dpth + 1, $$cr) !== null
+                    && this.regexAccept(String.raw`(?:{)`, $$dpth + 1, $$cr) !== null
+                    && this.matchwso($$dpth + 1, $$cr) !== null
+                    && ($scope$op2 = this.matchregOpList($$dpth + 1, $$cr)) !== null
+                    && this.matchwso($$dpth + 1, $$cr) !== null
+                    && this.regexAccept(String.raw`(?:})`, $$dpth + 1, $$cr) !== null
+                ) {
+                    $$res = {kind: ASTKinds.loadStoreMultipleOp, op1: $scope$op1, increment: $scope$increment, op2: $scope$op2};
+                }
+                return $$res;
+            });
+    }
     public matchsoftwareInterrupt($$dpth: number, $$cr?: ErrorTracker): Nullable<softwareInterrupt> {
         return this.run<softwareInterrupt>($$dpth,
             () => {
@@ -1403,7 +1739,7 @@ export class Parser {
                 let $scope$operands: Nullable<string>;
                 let $$res: Nullable<softwareInterrupt> = null;
                 if (true
-                    && ($scope$inst = this.regexAccept(String.raw`(?:swi)`, $$dpth + 1, $$cr)) !== null
+                    && ($scope$inst = this.regexAccept(String.raw`(?:[sS][wW][iI])`, $$dpth + 1, $$cr)) !== null
                     && ($scope$cond = this.matchcondition($$dpth + 1, $$cr)) !== null
                     && this.matchws($$dpth + 1, $$cr) !== null
                     && ($scope$operands = this.regexAccept(String.raw`(?:#0)`, $$dpth + 1, $$cr)) !== null
@@ -1567,6 +1903,7 @@ export class Parser {
             () => this.matchregOp_1($$dpth + 1, $$cr),
             () => this.matchregOp_2($$dpth + 1, $$cr),
             () => this.matchregOp_3($$dpth + 1, $$cr),
+            () => this.matchregOp_4($$dpth + 1, $$cr),
         ]);
     }
     public matchregOp_1($$dpth: number, $$cr?: ErrorTracker): Nullable<regOp_1> {
@@ -1575,7 +1912,7 @@ export class Parser {
                 let $scope$regOp: Nullable<string>;
                 let $$res: Nullable<regOp_1> = null;
                 if (true
-                    && ($scope$regOp = this.regexAccept(String.raw`(?:r[0-9]+)`, $$dpth + 1, $$cr)) !== null
+                    && ($scope$regOp = this.regexAccept(String.raw`(?:[rR][0-9]+)`, $$dpth + 1, $$cr)) !== null
                 ) {
                     $$res = {kind: ASTKinds.regOp_1, regOp: $scope$regOp};
                 }
@@ -1583,10 +1920,100 @@ export class Parser {
             });
     }
     public matchregOp_2($$dpth: number, $$cr?: ErrorTracker): Nullable<regOp_2> {
-        return this.regexAccept(String.raw`(?:pc)`, $$dpth + 1, $$cr);
+        return this.regexAccept(String.raw`(?:[pP][cC])`, $$dpth + 1, $$cr);
     }
     public matchregOp_3($$dpth: number, $$cr?: ErrorTracker): Nullable<regOp_3> {
-        return this.regexAccept(String.raw`(?:lr)`, $$dpth + 1, $$cr);
+        return this.regexAccept(String.raw`(?:[lL][rR])`, $$dpth + 1, $$cr);
+    }
+    public matchregOp_4($$dpth: number, $$cr?: ErrorTracker): Nullable<regOp_4> {
+        return this.regexAccept(String.raw`(?:[sS][pP])`, $$dpth + 1, $$cr);
+    }
+    public matchregOpRange($$dpth: number, $$cr?: ErrorTracker): Nullable<regOpRange> {
+        return this.run<regOpRange>($$dpth,
+            () => {
+                let $scope$op1: Nullable<regOp>;
+                let $scope$op2: Nullable<regOp>;
+                let $$res: Nullable<regOpRange> = null;
+                if (true
+                    && ($scope$op1 = this.matchregOp($$dpth + 1, $$cr)) !== null
+                    && this.matchwso($$dpth + 1, $$cr) !== null
+                    && this.regexAccept(String.raw`(?:-)`, $$dpth + 1, $$cr) !== null
+                    && this.matchwso($$dpth + 1, $$cr) !== null
+                    && ($scope$op2 = this.matchregOp($$dpth + 1, $$cr)) !== null
+                ) {
+                    $$res = {kind: ASTKinds.regOpRange, op1: $scope$op1, op2: $scope$op2};
+                }
+                return $$res;
+            });
+    }
+    public matchregOpOrRange($$dpth: number, $$cr?: ErrorTracker): Nullable<regOpOrRange> {
+        return this.choice<regOpOrRange>([
+            () => this.matchregOpOrRange_1($$dpth + 1, $$cr),
+            () => this.matchregOpOrRange_2($$dpth + 1, $$cr),
+        ]);
+    }
+    public matchregOpOrRange_1($$dpth: number, $$cr?: ErrorTracker): Nullable<regOpOrRange_1> {
+        return this.run<regOpOrRange_1>($$dpth,
+            () => {
+                let $scope$op: Nullable<regOpRange>;
+                let $$res: Nullable<regOpOrRange_1> = null;
+                if (true
+                    && ($scope$op = this.matchregOpRange($$dpth + 1, $$cr)) !== null
+                ) {
+                    $$res = {kind: ASTKinds.regOpOrRange_1, op: $scope$op};
+                }
+                return $$res;
+            });
+    }
+    public matchregOpOrRange_2($$dpth: number, $$cr?: ErrorTracker): Nullable<regOpOrRange_2> {
+        return this.run<regOpOrRange_2>($$dpth,
+            () => {
+                let $scope$op: Nullable<regOp>;
+                let $$res: Nullable<regOpOrRange_2> = null;
+                if (true
+                    && ($scope$op = this.matchregOp($$dpth + 1, $$cr)) !== null
+                ) {
+                    $$res = {kind: ASTKinds.regOpOrRange_2, op: $scope$op};
+                }
+                return $$res;
+            });
+    }
+    public matchregOpList($$dpth: number, $$cr?: ErrorTracker): Nullable<regOpList> {
+        return this.choice<regOpList>([
+            () => this.matchregOpList_1($$dpth + 1, $$cr),
+            () => this.matchregOpList_2($$dpth + 1, $$cr),
+        ]);
+    }
+    public matchregOpList_1($$dpth: number, $$cr?: ErrorTracker): Nullable<regOpList_1> {
+        return this.run<regOpList_1>($$dpth,
+            () => {
+                let $scope$op: Nullable<regOpOrRange>;
+                let $scope$nextOp: Nullable<regOpList>;
+                let $$res: Nullable<regOpList_1> = null;
+                if (true
+                    && ($scope$op = this.matchregOpOrRange($$dpth + 1, $$cr)) !== null
+                    && this.matchwso($$dpth + 1, $$cr) !== null
+                    && this.regexAccept(String.raw`(?:,)`, $$dpth + 1, $$cr) !== null
+                    && this.matchwso($$dpth + 1, $$cr) !== null
+                    && ($scope$nextOp = this.matchregOpList($$dpth + 1, $$cr)) !== null
+                ) {
+                    $$res = {kind: ASTKinds.regOpList_1, op: $scope$op, nextOp: $scope$nextOp};
+                }
+                return $$res;
+            });
+    }
+    public matchregOpList_2($$dpth: number, $$cr?: ErrorTracker): Nullable<regOpList_2> {
+        return this.run<regOpList_2>($$dpth,
+            () => {
+                let $scope$op: Nullable<regOpOrRange>;
+                let $$res: Nullable<regOpList_2> = null;
+                if (true
+                    && ($scope$op = this.matchregOpOrRange($$dpth + 1, $$cr)) !== null
+                ) {
+                    $$res = {kind: ASTKinds.regOpList_2, op: $scope$op};
+                }
+                return $$res;
+            });
     }
     public matchimmOp($$dpth: number, $$cr?: ErrorTracker): Nullable<immOp> {
         return this.run<immOp>($$dpth,
@@ -1600,7 +2027,7 @@ export class Parser {
                     && ($scope$immType = this.matchimmType($$dpth + 1, $$cr)) !== null
                     && ($scope$sign = this.matchsign($$dpth + 1, $$cr)) !== null
                     && ($scope$base = this.matchbase($$dpth + 1, $$cr)) !== null
-                    && ($scope$number = this.regexAccept(String.raw`(?:[0-9a-f]+)`, $$dpth + 1, $$cr)) !== null
+                    && ($scope$number = this.regexAccept(String.raw`(?:[0-9a-fA-F]+)`, $$dpth + 1, $$cr)) !== null
                 ) {
                     $$res = {kind: ASTKinds.immOp, immType: $scope$immType, sign: $scope$sign, base: $scope$base, number: $scope$number};
                 }
@@ -1628,13 +2055,13 @@ export class Parser {
         ]);
     }
     public matchbase_1($$dpth: number, $$cr?: ErrorTracker): Nullable<base_1> {
-        return this.regexAccept(String.raw`(?:0x)`, $$dpth + 1, $$cr);
+        return this.regexAccept(String.raw`(?:0[xX])`, $$dpth + 1, $$cr);
     }
     public matchbase_2($$dpth: number, $$cr?: ErrorTracker): Nullable<base_2> {
-        return this.regexAccept(String.raw`(?:0b)`, $$dpth + 1, $$cr);
+        return this.regexAccept(String.raw`(?:0[bB])`, $$dpth + 1, $$cr);
     }
     public matchbase_3($$dpth: number, $$cr?: ErrorTracker): Nullable<base_3> {
-        return this.regexAccept(String.raw`(?:0o)`, $$dpth + 1, $$cr);
+        return this.regexAccept(String.raw`(?:0[oO])`, $$dpth + 1, $$cr);
     }
     public matchbase_4($$dpth: number, $$cr?: ErrorTracker): Nullable<base_4> {
         return this.regexAccept(String.raw`(?:)`, $$dpth + 1, $$cr);
@@ -1669,22 +2096,22 @@ export class Parser {
         ]);
     }
     public matchshiftType_1($$dpth: number, $$cr?: ErrorTracker): Nullable<shiftType_1> {
-        return this.regexAccept(String.raw`(?:lsl)`, $$dpth + 1, $$cr);
+        return this.regexAccept(String.raw`(?:[lL][sS][lL])`, $$dpth + 1, $$cr);
     }
     public matchshiftType_2($$dpth: number, $$cr?: ErrorTracker): Nullable<shiftType_2> {
-        return this.regexAccept(String.raw`(?:asl)`, $$dpth + 1, $$cr);
+        return this.regexAccept(String.raw`(?:[aA][sS][lL])`, $$dpth + 1, $$cr);
     }
     public matchshiftType_3($$dpth: number, $$cr?: ErrorTracker): Nullable<shiftType_3> {
-        return this.regexAccept(String.raw`(?:lsr)`, $$dpth + 1, $$cr);
+        return this.regexAccept(String.raw`(?:[lL][sS][rR])`, $$dpth + 1, $$cr);
     }
     public matchshiftType_4($$dpth: number, $$cr?: ErrorTracker): Nullable<shiftType_4> {
-        return this.regexAccept(String.raw`(?:asr)`, $$dpth + 1, $$cr);
+        return this.regexAccept(String.raw`(?:[aA][sS][rR])`, $$dpth + 1, $$cr);
     }
     public matchshiftType_5($$dpth: number, $$cr?: ErrorTracker): Nullable<shiftType_5> {
-        return this.regexAccept(String.raw`(?:ror)`, $$dpth + 1, $$cr);
+        return this.regexAccept(String.raw`(?:[rR][oO][rR])`, $$dpth + 1, $$cr);
     }
     public matchshiftType_6($$dpth: number, $$cr?: ErrorTracker): Nullable<shiftType_6> {
-        return this.regexAccept(String.raw`(?:rrx)`, $$dpth + 1, $$cr);
+        return this.regexAccept(String.raw`(?:[rR][rR][xX])`, $$dpth + 1, $$cr);
     }
     public matchcondition($$dpth: number, $$cr?: ErrorTracker): Nullable<condition> {
         return this.run<condition>($$dpth,
@@ -1694,7 +2121,7 @@ export class Parser {
                 let $$res: Nullable<condition> = null;
                 if (true
                     && ($scope$condType = this.matchconditionType($$dpth + 1, $$cr)) !== null
-                    && (($scope$updateStatusReg = this.regexAccept(String.raw`(?:s)`, $$dpth + 1, $$cr)) || true)
+                    && (($scope$updateStatusReg = this.regexAccept(String.raw`(?:[sS])`, $$dpth + 1, $$cr)) || true)
                 ) {
                     $$res = {kind: ASTKinds.condition, condType: $scope$condType, updateStatusReg: $scope$updateStatusReg};
                 }
@@ -1725,58 +2152,58 @@ export class Parser {
         ]);
     }
     public matchconditionType_1($$dpth: number, $$cr?: ErrorTracker): Nullable<conditionType_1> {
-        return this.regexAccept(String.raw`(?:eq)`, $$dpth + 1, $$cr);
+        return this.regexAccept(String.raw`(?:[eE][qQ])`, $$dpth + 1, $$cr);
     }
     public matchconditionType_2($$dpth: number, $$cr?: ErrorTracker): Nullable<conditionType_2> {
-        return this.regexAccept(String.raw`(?:ne)`, $$dpth + 1, $$cr);
+        return this.regexAccept(String.raw`(?:[nN][eE])`, $$dpth + 1, $$cr);
     }
     public matchconditionType_3($$dpth: number, $$cr?: ErrorTracker): Nullable<conditionType_3> {
-        return this.regexAccept(String.raw`(?:hs)`, $$dpth + 1, $$cr);
+        return this.regexAccept(String.raw`(?:[hH][sS])`, $$dpth + 1, $$cr);
     }
     public matchconditionType_4($$dpth: number, $$cr?: ErrorTracker): Nullable<conditionType_4> {
-        return this.regexAccept(String.raw`(?:cs)`, $$dpth + 1, $$cr);
+        return this.regexAccept(String.raw`(?:[cC][sS])`, $$dpth + 1, $$cr);
     }
     public matchconditionType_5($$dpth: number, $$cr?: ErrorTracker): Nullable<conditionType_5> {
-        return this.regexAccept(String.raw`(?:lo)`, $$dpth + 1, $$cr);
+        return this.regexAccept(String.raw`(?:[lL][oO])`, $$dpth + 1, $$cr);
     }
     public matchconditionType_6($$dpth: number, $$cr?: ErrorTracker): Nullable<conditionType_6> {
-        return this.regexAccept(String.raw`(?:cc)`, $$dpth + 1, $$cr);
+        return this.regexAccept(String.raw`(?:[cC][cC])`, $$dpth + 1, $$cr);
     }
     public matchconditionType_7($$dpth: number, $$cr?: ErrorTracker): Nullable<conditionType_7> {
-        return this.regexAccept(String.raw`(?:mi)`, $$dpth + 1, $$cr);
+        return this.regexAccept(String.raw`(?:[mM][iI])`, $$dpth + 1, $$cr);
     }
     public matchconditionType_8($$dpth: number, $$cr?: ErrorTracker): Nullable<conditionType_8> {
-        return this.regexAccept(String.raw`(?:pl)`, $$dpth + 1, $$cr);
+        return this.regexAccept(String.raw`(?:[pP][lL])`, $$dpth + 1, $$cr);
     }
     public matchconditionType_9($$dpth: number, $$cr?: ErrorTracker): Nullable<conditionType_9> {
-        return this.regexAccept(String.raw`(?:vs)`, $$dpth + 1, $$cr);
+        return this.regexAccept(String.raw`(?:[vV][sS])`, $$dpth + 1, $$cr);
     }
     public matchconditionType_10($$dpth: number, $$cr?: ErrorTracker): Nullable<conditionType_10> {
-        return this.regexAccept(String.raw`(?:vc)`, $$dpth + 1, $$cr);
+        return this.regexAccept(String.raw`(?:[vV][cC])`, $$dpth + 1, $$cr);
     }
     public matchconditionType_11($$dpth: number, $$cr?: ErrorTracker): Nullable<conditionType_11> {
-        return this.regexAccept(String.raw`(?:hi)`, $$dpth + 1, $$cr);
+        return this.regexAccept(String.raw`(?:[hH][iI])`, $$dpth + 1, $$cr);
     }
     public matchconditionType_12($$dpth: number, $$cr?: ErrorTracker): Nullable<conditionType_12> {
-        return this.regexAccept(String.raw`(?:ls)`, $$dpth + 1, $$cr);
+        return this.regexAccept(String.raw`(?:[lL][sS])`, $$dpth + 1, $$cr);
     }
     public matchconditionType_13($$dpth: number, $$cr?: ErrorTracker): Nullable<conditionType_13> {
-        return this.regexAccept(String.raw`(?:ge)`, $$dpth + 1, $$cr);
+        return this.regexAccept(String.raw`(?:[gG][eE])`, $$dpth + 1, $$cr);
     }
     public matchconditionType_14($$dpth: number, $$cr?: ErrorTracker): Nullable<conditionType_14> {
-        return this.regexAccept(String.raw`(?:lt)`, $$dpth + 1, $$cr);
+        return this.regexAccept(String.raw`(?:[lL][tT])`, $$dpth + 1, $$cr);
     }
     public matchconditionType_15($$dpth: number, $$cr?: ErrorTracker): Nullable<conditionType_15> {
-        return this.regexAccept(String.raw`(?:gt)`, $$dpth + 1, $$cr);
+        return this.regexAccept(String.raw`(?:[gG][tT])`, $$dpth + 1, $$cr);
     }
     public matchconditionType_16($$dpth: number, $$cr?: ErrorTracker): Nullable<conditionType_16> {
-        return this.regexAccept(String.raw`(?:le)`, $$dpth + 1, $$cr);
+        return this.regexAccept(String.raw`(?:[lL][eE])`, $$dpth + 1, $$cr);
     }
     public matchconditionType_17($$dpth: number, $$cr?: ErrorTracker): Nullable<conditionType_17> {
-        return this.regexAccept(String.raw`(?:al)`, $$dpth + 1, $$cr);
+        return this.regexAccept(String.raw`(?:[aA][lL])`, $$dpth + 1, $$cr);
     }
     public matchconditionType_18($$dpth: number, $$cr?: ErrorTracker): Nullable<conditionType_18> {
-        return this.regexAccept(String.raw`(?:nv)`, $$dpth + 1, $$cr);
+        return this.regexAccept(String.raw`(?:[nN][vV])`, $$dpth + 1, $$cr);
     }
     public matchconditionType_19($$dpth: number, $$cr?: ErrorTracker): Nullable<conditionType_19> {
         return this.regexAccept(String.raw`(?:)`, $$dpth + 1, $$cr);

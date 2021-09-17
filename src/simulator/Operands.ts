@@ -1,5 +1,5 @@
 export {
-    Operand, RegisterOperand, ImmediateOperand, ShifterOperand, BranchOperand, LoadStoreOperand, LoadImmediateOperand
+    Operand, RegisterOperand, ImmediateOperand, ShifterOperand, BranchOperand, LoadStoreOperand, LoadImmediateOperand, LoadStoreMultipleOperand
 }
 
 class Operand { }
@@ -163,6 +163,27 @@ class LoadImmediateOperand extends Operand {
         if (this.immediate instanceof BranchOperand) { string += this.immediate.toString() }
         else { string += "0x" + this.immediate.toString(16)}
 
+        return string;
+    }
+}
+
+class LoadStoreMultipleOperand extends Operand {
+    private registers: RegisterOperand[];
+
+    constructor(registers: RegisterOperand[]) {
+        super();
+        registers = registers.filter((value, index, array) => {return array.indexOf(value) === index})
+        this.registers = registers.sort((a, b) => a.getIndex() - b.getIndex());
+    }
+
+    getRegisters() { return this.registers };
+
+    toString(): string {
+        let string = "{";
+        this.registers.forEach((reg) => {
+            string += reg.toString() + ", "
+        })
+        string = string.slice(0, -2) + "}";
         return string;
     }
 }
