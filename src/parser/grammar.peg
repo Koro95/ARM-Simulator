@@ -12,12 +12,12 @@ ascii := '.[aA][sS][cC][iI][iI]' ws '"' data='[ -!#-~]*' '"'
 
 instruction := instruction=art | instruction=log | instruction=copyJump | instruction=loadStore | instruction=loadStoreMultiple | instruction=softwareInterrupt
 
-variableLine := variable='[_A-Za-z0-9]+' wso '=' wso '.' wso '-' wso label='[_A-Za-z0-9]+'
+variableLine := variable='[_A-Za-z][_A-Za-z0-9]*' wso '=' wso '.' wso '-' wso label='[_A-Za-z][_A-Za-z0-9]*'
 
 commentLine := commentLine=comment
 
-label := label='[_A-Za-z0-9]+' ':'
-comment := comment='//[ \t\S]*' | comment='\/\*[ \t\S]*\*\/'
+label := label='[_A-Za-z][_A-Za-z0-9]*' ':'
+comment := comment='//[ \t\S]*' | comment='\/\*[\s -.0-~öäüß]*\*\/'
 
 //------------------------------------------------------------------------------------------------
 
@@ -56,13 +56,14 @@ jumpOp := op1=branchOp
 
 //------------------------------------------------------------------------------------------------
 
-loadStore := inst=loadStoreInst cond=condition ws operands=loadStoreOp | inst=loadStoreInst cond=condition ws operands=loadImmediateOp | inst=loadStoreInst cond=condition ws operands=loadImmediateBranchOp
+loadStore := inst=loadStoreInst cond=condition ws operands=loadStoreOp | inst=loadStoreInst cond=condition ws operands=loadImmediateBranchOp |
+        inst=loadStoreInst cond=condition ws operands=loadImmediateOp
 
 loadStoreInst := '[lL][dD][rR]' | '[sS][tT][rR]'
 
 loadStoreOp := op1=regOp wso ',' wso op2=addressingMode
 loadImmediateOp := op1=regOp wso ',' wso op2=immOp
-loadImmediateBranchOp := op1=regOp wso ',' wso '=' op2=branchOp
+loadImmediateBranchOp := op1=regOp wso ',' wso '=' op2=branchOp offset='[+-][0-9]+'?
 
 //------------------------------------------------------------------------------------------------
 
@@ -97,7 +98,7 @@ immType := '#' | '='
 base := '0[xX]' | '0[bB]' | '0[oO]' | ''
 sign := '-' | '\+' | ''
 
-branchOp := '[_A-Za-z0-9]+'
+branchOp := '[_A-Za-z][_A-Za-z0-9]*'
 
 shiftType := '[lL][sS][lL]' | '[aA][sS][lL]' | '[lL][sS][rR]' | '[aA][sS][rR]' | '[rR][oO][rR]' | '[rR][rR][xX]'
 

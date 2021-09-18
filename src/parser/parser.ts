@@ -10,10 +10,10 @@
 *         directive='.[aA][lL][iI][gG][nN]' | directive='.[gG][lL][oO][bB][aA][lL]' ws '_[sS][tT][aA][rR][tT]'
 * ascii := '.[aA][sS][cC][iI][iI]' ws '"' data='[ -!#-~]*' '"'
 * instruction := instruction=art | instruction=log | instruction=copyJump | instruction=loadStore | instruction=loadStoreMultiple | instruction=softwareInterrupt
-* variableLine := variable='[_A-Za-z0-9]+' wso '=' wso '.' wso '-' wso label='[_A-Za-z0-9]+'
+* variableLine := variable='[_A-Za-z][_A-Za-z0-9]*' wso '=' wso '.' wso '-' wso label='[_A-Za-z][_A-Za-z0-9]*'
 * commentLine := commentLine=comment
-* label := label='[_A-Za-z0-9]+' ':'
-* comment := comment='//[ \t\S]*' | comment='\/\*[ \t\S]*\*\/'
+* label := label='[_A-Za-z][_A-Za-z0-9]*' ':'
+* comment := comment='//[ \t\S]*' | comment='\/\*[\s -.0-~öäüß]*\*\/'
 * //------------------------------------------------------------------------------------------------
 * art := inst=artInst cond=condition ws operands=artOp | inst='[mM][uU][lL]' cond=condition ws operands=artMulOp | inst='[mM][lL][aA]' cond=condition ws operands=artMlaOp
 * artInst := '[aA][dD][dD]' | '[aA][dD][cC]' | '[sS][uU][bB]' | '[sS][bB][cC]' | '[rR][sS][bB]' | '[rR][sS][cC]'
@@ -37,11 +37,12 @@
 * copyOp := op1=regOp wso ',' wso op2=op
 * jumpOp := op1=branchOp
 * //------------------------------------------------------------------------------------------------
-* loadStore := inst=loadStoreInst cond=condition ws operands=loadStoreOp | inst=loadStoreInst cond=condition ws operands=loadImmediateOp | inst=loadStoreInst cond=condition ws operands=loadImmediateBranchOp
+* loadStore := inst=loadStoreInst cond=condition ws operands=loadStoreOp | inst=loadStoreInst cond=condition ws operands=loadImmediateBranchOp |
+*         inst=loadStoreInst cond=condition ws operands=loadImmediateOp
 * loadStoreInst := '[lL][dD][rR]' | '[sS][tT][rR]'
 * loadStoreOp := op1=regOp wso ',' wso op2=addressingMode
 * loadImmediateOp := op1=regOp wso ',' wso op2=immOp
-* loadImmediateBranchOp := op1=regOp wso ',' wso '=' op2=branchOp
+* loadImmediateBranchOp := op1=regOp wso ',' wso '=' op2=branchOp offset='[+-][0-9]+'?
 * //------------------------------------------------------------------------------------------------
 * loadStoreMultiple := inst=loadStoreMultipleInst addressingMode=loadStoreMultipleAddrMode cond=condition ws operands=loadStoreMultipleOp
 * loadStoreMultipleInst := '[lL][dD][mM]' | '[sS][tT][mM]'
@@ -63,7 +64,7 @@
 * immType := '#' | '='
 * base := '0[xX]' | '0[bB]' | '0[oO]' | ''
 * sign := '-' | '\+' | ''
-* branchOp := '[_A-Za-z0-9]+'
+* branchOp := '[_A-Za-z][_A-Za-z0-9]*'
 * shiftType := '[lL][sS][lL]' | '[aA][sS][lL]' | '[lL][sS][rR]' | '[aA][sS][rR]' | '[rR][oO][rR]' | '[rR][rR][xX]'
 * condition := condType=conditionType updateStatusReg='[sS]'?
 * conditionType := '[eE][qQ]' | '[nN][eE]' | '[hH][sS]' | '[cC][sS]' | '[lL][oO]' | '[cC][cC]' | '[mM][iI]' | '[pP][lL]' | '[vV][sS]' |
@@ -467,13 +468,13 @@ export interface loadStore_2 {
     kind: ASTKinds.loadStore_2;
     inst: loadStoreInst;
     cond: condition;
-    operands: loadImmediateOp;
+    operands: loadImmediateBranchOp;
 }
 export interface loadStore_3 {
     kind: ASTKinds.loadStore_3;
     inst: loadStoreInst;
     cond: condition;
-    operands: loadImmediateBranchOp;
+    operands: loadImmediateOp;
 }
 export type loadStoreInst = loadStoreInst_1 | loadStoreInst_2;
 export type loadStoreInst_1 = string;
@@ -492,6 +493,7 @@ export interface loadImmediateBranchOp {
     kind: ASTKinds.loadImmediateBranchOp;
     op1: regOp;
     op2: branchOp;
+    offset: Nullable<string>;
 }
 export interface loadStoreMultiple {
     kind: ASTKinds.loadStoreMultiple;
@@ -995,7 +997,7 @@ export class Parser {
                 let $scope$label: Nullable<string>;
                 let $$res: Nullable<variableLine> = null;
                 if (true
-                    && ($scope$variable = this.regexAccept(String.raw`(?:[_A-Za-z0-9]+)`, $$dpth + 1, $$cr)) !== null
+                    && ($scope$variable = this.regexAccept(String.raw`(?:[_A-Za-z][_A-Za-z0-9]*)`, $$dpth + 1, $$cr)) !== null
                     && this.matchwso($$dpth + 1, $$cr) !== null
                     && this.regexAccept(String.raw`(?:=)`, $$dpth + 1, $$cr) !== null
                     && this.matchwso($$dpth + 1, $$cr) !== null
@@ -1003,7 +1005,7 @@ export class Parser {
                     && this.matchwso($$dpth + 1, $$cr) !== null
                     && this.regexAccept(String.raw`(?:-)`, $$dpth + 1, $$cr) !== null
                     && this.matchwso($$dpth + 1, $$cr) !== null
-                    && ($scope$label = this.regexAccept(String.raw`(?:[_A-Za-z0-9]+)`, $$dpth + 1, $$cr)) !== null
+                    && ($scope$label = this.regexAccept(String.raw`(?:[_A-Za-z][_A-Za-z0-9]*)`, $$dpth + 1, $$cr)) !== null
                 ) {
                     $$res = {kind: ASTKinds.variableLine, variable: $scope$variable, label: $scope$label};
                 }
@@ -1029,7 +1031,7 @@ export class Parser {
                 let $scope$label: Nullable<string>;
                 let $$res: Nullable<label> = null;
                 if (true
-                    && ($scope$label = this.regexAccept(String.raw`(?:[_A-Za-z0-9]+)`, $$dpth + 1, $$cr)) !== null
+                    && ($scope$label = this.regexAccept(String.raw`(?:[_A-Za-z][_A-Za-z0-9]*)`, $$dpth + 1, $$cr)) !== null
                     && this.regexAccept(String.raw`(?::)`, $$dpth + 1, $$cr) !== null
                 ) {
                     $$res = {kind: ASTKinds.label, label: $scope$label};
@@ -1062,7 +1064,7 @@ export class Parser {
                 let $scope$comment: Nullable<string>;
                 let $$res: Nullable<comment_2> = null;
                 if (true
-                    && ($scope$comment = this.regexAccept(String.raw`(?:\/\*[ \t\S]*\*\/)`, $$dpth + 1, $$cr)) !== null
+                    && ($scope$comment = this.regexAccept(String.raw`(?:\/\*[\s -.0-~öäüß]*\*\/)`, $$dpth + 1, $$cr)) !== null
                 ) {
                     $$res = {kind: ASTKinds.comment_2, comment: $scope$comment};
                 }
@@ -1537,13 +1539,13 @@ export class Parser {
             () => {
                 let $scope$inst: Nullable<loadStoreInst>;
                 let $scope$cond: Nullable<condition>;
-                let $scope$operands: Nullable<loadImmediateOp>;
+                let $scope$operands: Nullable<loadImmediateBranchOp>;
                 let $$res: Nullable<loadStore_2> = null;
                 if (true
                     && ($scope$inst = this.matchloadStoreInst($$dpth + 1, $$cr)) !== null
                     && ($scope$cond = this.matchcondition($$dpth + 1, $$cr)) !== null
                     && this.matchws($$dpth + 1, $$cr) !== null
-                    && ($scope$operands = this.matchloadImmediateOp($$dpth + 1, $$cr)) !== null
+                    && ($scope$operands = this.matchloadImmediateBranchOp($$dpth + 1, $$cr)) !== null
                 ) {
                     $$res = {kind: ASTKinds.loadStore_2, inst: $scope$inst, cond: $scope$cond, operands: $scope$operands};
                 }
@@ -1555,13 +1557,13 @@ export class Parser {
             () => {
                 let $scope$inst: Nullable<loadStoreInst>;
                 let $scope$cond: Nullable<condition>;
-                let $scope$operands: Nullable<loadImmediateBranchOp>;
+                let $scope$operands: Nullable<loadImmediateOp>;
                 let $$res: Nullable<loadStore_3> = null;
                 if (true
                     && ($scope$inst = this.matchloadStoreInst($$dpth + 1, $$cr)) !== null
                     && ($scope$cond = this.matchcondition($$dpth + 1, $$cr)) !== null
                     && this.matchws($$dpth + 1, $$cr) !== null
-                    && ($scope$operands = this.matchloadImmediateBranchOp($$dpth + 1, $$cr)) !== null
+                    && ($scope$operands = this.matchloadImmediateOp($$dpth + 1, $$cr)) !== null
                 ) {
                     $$res = {kind: ASTKinds.loadStore_3, inst: $scope$inst, cond: $scope$cond, operands: $scope$operands};
                 }
@@ -1621,6 +1623,7 @@ export class Parser {
             () => {
                 let $scope$op1: Nullable<regOp>;
                 let $scope$op2: Nullable<branchOp>;
+                let $scope$offset: Nullable<Nullable<string>>;
                 let $$res: Nullable<loadImmediateBranchOp> = null;
                 if (true
                     && ($scope$op1 = this.matchregOp($$dpth + 1, $$cr)) !== null
@@ -1629,8 +1632,9 @@ export class Parser {
                     && this.matchwso($$dpth + 1, $$cr) !== null
                     && this.regexAccept(String.raw`(?:=)`, $$dpth + 1, $$cr) !== null
                     && ($scope$op2 = this.matchbranchOp($$dpth + 1, $$cr)) !== null
+                    && (($scope$offset = this.regexAccept(String.raw`(?:[+-][0-9]+)`, $$dpth + 1, $$cr)) || true)
                 ) {
-                    $$res = {kind: ASTKinds.loadImmediateBranchOp, op1: $scope$op1, op2: $scope$op2};
+                    $$res = {kind: ASTKinds.loadImmediateBranchOp, op1: $scope$op1, op2: $scope$op2, offset: $scope$offset};
                 }
                 return $$res;
             });
@@ -2083,7 +2087,7 @@ export class Parser {
         return this.regexAccept(String.raw`(?:)`, $$dpth + 1, $$cr);
     }
     public matchbranchOp($$dpth: number, $$cr?: ErrorTracker): Nullable<branchOp> {
-        return this.regexAccept(String.raw`(?:[_A-Za-z0-9]+)`, $$dpth + 1, $$cr);
+        return this.regexAccept(String.raw`(?:[_A-Za-z][_A-Za-z0-9]*)`, $$dpth + 1, $$cr);
     }
     public matchshiftType($$dpth: number, $$cr?: ErrorTracker): Nullable<shiftType> {
         return this.choice<shiftType>([

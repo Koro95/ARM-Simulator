@@ -74,7 +74,9 @@ class UserInputParser {
                 if (startAddress !== undefined) {         
                     let newRegisters = [...this.cpu.state.registers];
                     newRegisters[15] = startAddress;
-                    this.cpu.setState({ registers: newRegisters })
+                    let newStackTrace = [startAddress]
+                    this.cpu.state.codeExecutionEngine.stackTrace = newStackTrace;
+                    this.cpu.setState({ registers: newRegisters, codeExecutionEngine: this.cpu.state.codeExecutionEngine })
                 }
                 else {
                     this.cpu.newTerminalMessage("No \"_start\" label found. Starting at 0x00000000", MessageType.Warning)
@@ -261,6 +263,7 @@ class UserInputParser {
                 break;
             case ASTKinds.loadImmediateBranchOp:
                 op2 = "=" + instruction.operands.op2;
+                if (instruction.operands.offset !== null) { op2 += instruction.operands.offset };
                 successful = this.cpu.state.mainMemory.addInstruction(instruction.inst, condition, false, op1, op2, undefined, undefined);
                 break;
         }

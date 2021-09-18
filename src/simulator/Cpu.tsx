@@ -1,11 +1,12 @@
 import { examples } from '../parser/examples/examples'
 import React from "react";
 import InputBase from '@material-ui/core/InputBase';
-import { InputBaseComponentProps, MenuItem, Select } from "@material-ui/core";
+import { InputBaseComponentProps, MenuItem, Paper, Select, Table, TableBody, TableCell, TableContainer, TableHead, TableRow } from "@material-ui/core";
 import Box from '@material-ui/core/Box';
 import Button from '@material-ui/core/Button';
 import { Tab, Tabs, TabList, TabPanel } from 'react-tabs';
 import 'react-tabs/style/react-tabs.css';
+import CancelIcon from '@material-ui/icons/Cancel';
 
 import CodeMirror from '@uiw/react-codemirror';
 
@@ -139,7 +140,7 @@ class Cpu extends React.Component<any, CpuState> {
     };
 
     render() {
-        const style = { style: { padding: 0, 'padding-left': 10, width: '90px' } } as InputBaseComponentProps;
+        const style = { style: { padding: 0, 'padding-left': 10, width: '90px', fontFamily: 'monospace' } } as InputBaseComponentProps;
 
         return (
             <div className="App">
@@ -154,6 +155,12 @@ class Cpu extends React.Component<any, CpuState> {
                     >
                         <MenuItem value={0}>{examples[0][0]}</MenuItem>
                         <MenuItem value={1}>{examples[1][0]}</MenuItem>
+                        <MenuItem value={2}>{examples[2][0]}</MenuItem>
+                        <MenuItem value={3}>{examples[3][0]}</MenuItem>
+                        <MenuItem value={4}>{examples[4][0]}</MenuItem>
+                        <MenuItem value={5}>{examples[5][0]}</MenuItem>
+                        <MenuItem value={6}>{examples[6][0]}</MenuItem>
+                        <MenuItem value={7}>{examples[7][0]}</MenuItem>
                     </Select>
                 </div>
                 <div className="App-body">
@@ -163,6 +170,7 @@ class Cpu extends React.Component<any, CpuState> {
                                 <TabList className="tab-list-reg">
                                     <Tab>Register</Tab>
                                     <Tab>Stack</Tab>
+                                    <Tab>Breakpoints</Tab>
                                 </TabList>
 
                                 <TabPanel>
@@ -184,7 +192,37 @@ class Cpu extends React.Component<any, CpuState> {
                                     <div className="Reg"> <div className="Reg-names">pc</div><InputBase inputProps={style} value={this.toHex(this.state.registers[15])} onChange={e => this.regValueChange(15, e)} /> </div>
                                 </TabPanel>
                                 <TabPanel>
-                                    hallo
+                                    <TableContainer component={Paper} >
+                                        <Table size="small" aria-label="a dense table">
+                                            <TableBody>
+                                                {this.state.codeExecutionEngine.stackTrace.map((row) => (
+                                                    <TableRow key={row} >
+                                                        <TableCell align="center">
+                                                            {this.toHex(row)}
+                                                        </TableCell>
+                                                    </TableRow>
+                                                ))}
+                                            </TableBody>
+                                        </Table>
+                                    </TableContainer>
+                                </TabPanel>
+                                <TabPanel>
+                                    <TableContainer component={Paper} >
+                                        <Table size="small" aria-label="a dense table">
+                                            <TableBody>
+                                                {Array.from(this.state.codeExecutionEngine.breakpoints).sort((a, b) => a - b).map((row) => (
+                                                    <TableRow key={row} >
+                                                        <TableCell align="center" style={{ fontFamily: 'monospace', display: 'flex', justifyContent: 'center' }} >
+                                                            {this.toHex(row)}
+                                                            <div onClick={() => { this.state.codeExecutionEngine.breakpoints.delete(row); this.setState({ codeExecutionEngine: this.state.codeExecutionEngine }) }}>
+                                                                <CancelIcon style={{ height: '20px', verticalAlign: 'middle', cursor: 'pointer', paddingLeft: '5px' }}>
+                                                                </CancelIcon></div>
+                                                        </TableCell>
+                                                    </TableRow>
+                                                ))}
+                                            </TableBody>
+                                        </Table>
+                                    </TableContainer>
                                 </TabPanel>
                             </Tabs>
                         </Box>

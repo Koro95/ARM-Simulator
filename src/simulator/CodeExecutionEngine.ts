@@ -22,6 +22,7 @@ class CodeExecutionEngine {
     debuggerSpeed: DebuggerSpeed;
     stop: boolean;
     breakpoints: Set<number>;
+    stackTrace: number[];
 
     constructor(cpu: Cpu) {
         this.cpu = cpu;
@@ -32,6 +33,7 @@ class CodeExecutionEngine {
         this.debuggerSpeed = DebuggerSpeed.Instant;
         this.stop = false;
         this.breakpoints = new Set();
+        this.stackTrace = [0];
     }
 
     delay = (ms: number) => new Promise(res => setTimeout(res, ms));
@@ -42,7 +44,8 @@ class CodeExecutionEngine {
         this.newMainMemory = this.cpu.state.mainMemory;
 
         let currentNumInstruction = 0;
-        let maxContinueInstructions = 1000;
+        // max from sample solution pascal
+        let maxContinueInstructions = 2000000;
 
         do {
             if (currentNumInstruction++ > maxContinueInstructions) {
@@ -67,6 +70,9 @@ class CodeExecutionEngine {
             if (this.breakpoints.has(this.newRegisters[15])) {
                 this.stop = true;
             }
+
+            this.stackTrace[this.stackTrace.length-1] = this.newRegisters[15]
+
             return successful;
         }
         else {
@@ -160,14 +166,15 @@ class CodeExecutionEngine {
                 let x = inst.getOp1();
 
                 targetRegister = x.getIndex()
+                op2 = inst.getOp2();
 
-                op2 = this.getOperandValue(inst.getOp2());
-                if (typeof op2 !== 'undefined') {
-                    result = this.copy(inst, op2);
+                let op2Value = this.getOperandValue(op2);
+                if (typeof op2Value !== 'undefined') {
+                    result = this.copy(inst, op2Value);
                 }
 
-                if (targetRegister === 15 && typeof result !== 'undefined') {
-                    result += 4;
+                if (targetRegister === 15 && op2 instanceof RegisterOperand && op2.getIndex() == 14) {
+                    this.stackTrace.pop();
                 }
 
             }
@@ -175,11 +182,11 @@ class CodeExecutionEngine {
                 let x = inst.getOp1();
 
                 let address = this.cpu.state.mainMemory.labelToAddress.get(x.toString());
-                this.newRegisters[15] -= 4;
 
                 if (typeof address !== 'undefined') {
                     if (inst.getInstruction() === "bl") {
-                        this.newRegisters[14] = this.newRegisters[15]
+                        this.newRegisters[14] = this.newRegisters[15];
+                        this.stackTrace.push(address);
                     }
                     this.newRegisters[15] = address;
                 }
@@ -277,7 +284,8 @@ class CodeExecutionEngine {
 
                         let value = this.cpu.state.mainMemory.getMemoryLine(address).getContent();
                         if (typeof value === 'number') {
-                            this.newRegisters[registers[x].getIndex()] = value;
+                            let index = registers[x].getIndex()
+                            this.newRegisters[index] = value;
                         }
                         else {
                             this.cpu.newTerminalMessage("Loading data from an Instruction line not supported!", MessageType.Warning)
@@ -342,7 +350,8 @@ class CodeExecutionEngine {
                     else if (inst.getInstruction() === "ldr") {
                         let content = this.newMainMemory.getMemoryLine(loadStoreReg).getContent();
                         if (typeof content === 'number') {
-                            this.newRegisters[inst.getOp1().getIndex()] = content;
+                            let index = inst.getOp1().getIndex();
+                            this.newRegisters[index] = content;
                         }
                         else {
                             this.cpu.newTerminalMessage("Loading data from an Instruction line not supported!", MessageType.Warning)
@@ -368,7 +377,9 @@ class CodeExecutionEngine {
                     else if (inst.getInstruction() === "ldr") {
                         let content = this.newMainMemory.getMemoryLine(loadStoreReg).getContent();
                         if (typeof content === 'number') {
-                            this.newRegisters[inst.getOp1().getIndex()] = content;
+                            let index = inst.getOp1().getIndex();
+                            if( index === 15) { content+=4 };
+                            this.newRegisters[index] = content;
                         }
                         else {
                             this.cpu.newTerminalMessage("Loading data from an Instruction line not supported!", MessageType.Warning)
@@ -393,17 +404,35 @@ class CodeExecutionEngine {
             let content;
 
             if (op2Immediate instanceof BranchOperand) {
-                let contentAddress = this.newMainMemory?.labelToAddress.get(op2Immediate.getLabel());
+                let offset;
+                let label = op2Immediate.getLabel();
+
+                let splitLabelPlus = label.split("+");
+                let splitLabelMinus = label.split("-");
+                if (splitLabelPlus.length > 1) {
+                    offset = +parseInt(splitLabelPlus[1]);
+                    label = splitLabelPlus[0];
+                }
+                else if (splitLabelMinus.length > 1) {
+                    offset = -parseInt(splitLabelMinus[1]);
+                    label = splitLabelMinus[0];
+                }
+
+                let contentAddress = this.newMainMemory?.labelToAddress.get(label);
+
                 if (contentAddress !== undefined) {
+                    if (offset !== undefined) {
+                        contentAddress += offset;
+                    }
                     this.newRegisters[inst.getOp1().getIndex()] = contentAddress;
                 }
                 else {
-                    let variable = this.newMainMemory?.variables.get(op2Immediate.getLabel());
+                    let variable = this.newMainMemory?.variables.get(label);
                     if (variable !== undefined) {
                         this.newRegisters[inst.getOp1().getIndex()] = variable;
                     }
                     else {
-                        this.cpu.newTerminalMessage("Label or Variable \"" + op2Immediate.getLabel() + "\" not found!", MessageType.Error)
+                        this.cpu.newTerminalMessage("Label or Variable \"" + label + "\" not found!", MessageType.Error)
                         this.newRegisters[15] -= 4;
                         return false;
                     }
@@ -425,20 +454,21 @@ class CodeExecutionEngine {
     arithmetic(inst: Instruction, a: number, b: number, x?: number): number | undefined {
         let y = undefined;
         let isArithmetic = true;
+        let isSubtraction = false;
 
         switch (inst.getInstruction()) {
             case "add": y = (a + b); break;
             case "adc": y = (a + b + this.newStatusRegister.getC()); break;
-            case "sub": b = ~b; y = (a + b + 1); break;
-            case "sbc": b = ~b; y = (a + b + 1 + this.newStatusRegister.getC() - 1); break;
-            case "rsb": a = ~a; y = (b + a + 1); break;
-            case "rsc": a = ~a; y = (b + a + 1 + this.newStatusRegister.getC() - 1); break;
+            case "sub": b = ~b; y = (a + b + 1); isSubtraction = true; break;
+            case "sbc": b = ~b; y = (a + b + 1 + this.newStatusRegister.getC() - 1); isSubtraction = true; break;
+            case "rsb": a = ~a; y = (b + a + 1); isSubtraction = true; break;
+            case "rsc": a = ~a; y = (b + a + 1 + this.newStatusRegister.getC() - 1); isSubtraction = true; break;
             case "mul": y = (a * b); isArithmetic = false; break;
             case "mla": y = ((typeof x !== 'undefined') ? (a * b) + x : undefined); isArithmetic = false;
         }
-
+        
         if (inst.getUpdateStatusRegister() && typeof y !== 'undefined') {
-            this.newStatusRegister.updateFlags(isArithmetic, y, a, b);
+            this.newStatusRegister.updateFlags(y, a, b, isSubtraction, isArithmetic);
         }
 
         return y;
@@ -447,6 +477,7 @@ class CodeExecutionEngine {
     logical(inst: Instruction, a: number, b: number,): number | undefined {
         let y = undefined;
         let isArithmetic = false;
+        let isSubtraction = false;
         let updateStatusRegister = inst.getUpdateStatusRegister();
         let resultNeeded = true;
 
@@ -455,14 +486,14 @@ class CodeExecutionEngine {
             case "orr": y = (a | b); break;
             case "teq": y = (a ^ b); break;
             case "bic": b = ~b; y = (a & b); break;
-            case "cmp": b = ~b; y = (a + b + 1); isArithmetic = true; resultNeeded = false; break;
+            case "cmp": b = ~b; y = (a + b + 1); isArithmetic = true; isSubtraction = false; resultNeeded = false; break;
             case "cmn": y = (a + b); isArithmetic = true; resultNeeded = false; break;
             case "tst": y = (a & b); resultNeeded = false; break;
             case "eor": y = (a ^ b); resultNeeded = false;
         }
 
         if (updateStatusRegister && typeof y !== 'undefined') {
-            this.newStatusRegister.updateFlags(isArithmetic, y, a, b);
+            this.newStatusRegister.updateFlags(y, a, b, isSubtraction, isArithmetic);
         }
 
         if (resultNeeded) {

@@ -166,7 +166,7 @@ class MainMemory {
             let op2 = this.addRegImmShiftOperand(op2String);
 
             if (op1 !== undefined && op2 !== undefined) {
-                newInstruction = new LogicInstruction(instruction, condition, op1, op2, undefined, updateStatusRegister);
+                newInstruction = new LogicInstruction(instruction, condition, op1, op2, undefined, true);
             }
             // operands undefined
             else {
