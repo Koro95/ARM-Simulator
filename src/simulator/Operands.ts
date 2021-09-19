@@ -47,6 +47,7 @@ class ImmediateOperand extends Operand {
         let numberString = "#"
         switch (this.base) {
             case 16: numberString += "0x"; break;
+            case 8: numberString += "0o"; break;
             case 2: numberString += "0b"; break;
         }
         return numberString + this.getValue().toString(this.base);
@@ -150,18 +151,30 @@ class LoadStoreOperand extends Operand {
 
 class LoadImmediateOperand extends Operand {
     private immediate: number | BranchOperand;
+    private base: number | undefined;
 
-    constructor(immediate: number | BranchOperand) {
+    constructor(immediate: number | BranchOperand, base: number | undefined) {
         super();
         this.immediate = immediate;
+        this.base = base;
     }
 
     getImmediate() { return this.immediate };
+    getBase() { return this.base };
 
     toString() {
         let string = "=";
-        if (this.immediate instanceof BranchOperand) { string += this.immediate.toString() }
-        else { string += "0x" + this.immediate.toString(16)}
+        if (this.immediate instanceof BranchOperand) {
+            string += this.immediate.toString()
+        }
+        else {
+            switch (this.base) {
+                case 16: string += "0x"; break;
+                case 8: string += "0o"; break;
+                case 2: string += "0b"; break;
+            }
+            string += this.immediate.toString(this.base);
+        }
 
         return string;
     }
@@ -172,7 +185,7 @@ class LoadStoreMultipleOperand extends Operand {
 
     constructor(registers: RegisterOperand[]) {
         super();
-        registers = registers.filter((value, index, array) => {return array.indexOf(value) === index})
+        registers = registers.filter((value, index, array) => { return array.indexOf(value) === index })
         this.registers = registers.sort((a, b) => a.getIndex() - b.getIndex());
     }
 

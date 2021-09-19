@@ -71,7 +71,7 @@ class CodeExecutionEngine {
                 this.stop = true;
             }
 
-            this.stackTrace[this.stackTrace.length-1] = this.newRegisters[15]
+            this.stackTrace[this.stackTrace.length - 1] = this.newRegisters[15]
 
             return successful;
         }
@@ -173,7 +173,7 @@ class CodeExecutionEngine {
                     result = this.copy(inst, op2Value);
                 }
 
-                if (targetRegister === 15 && op2 instanceof RegisterOperand && op2.getIndex() == 14) {
+                if (targetRegister === 15 && op2 instanceof RegisterOperand && op2.getIndex() === 14) {
                     this.stackTrace.pop();
                 }
 
@@ -189,6 +189,8 @@ class CodeExecutionEngine {
                         this.stackTrace.push(address);
                     }
                     this.newRegisters[15] = address;
+                    this.cpu.state.mainMemory.goto = address;
+                    this.cpu.state.mainMemory.gotoMemoryAddress();
                 }
                 else {
                     this.cpu.newTerminalMessage("Invalid branch label!", MessageType.Error)
@@ -241,7 +243,7 @@ class CodeExecutionEngine {
         let address = this.getOperandValue(inst.getOp1());
         let registers = [...inst.getOp2().getRegisters()];
         if (!increment) { registers = registers.reverse() }
-        console.log(registers)
+
         if (address !== undefined) {
             if (inst.getInstruction() === "stm") {
                 for (let x = 0; x < registers.length; x++) {
@@ -318,6 +320,7 @@ class CodeExecutionEngine {
     loadStore(inst: LoadStoreInstruction): boolean {
         let reg = this.getOperandValue(inst.getOp1());
         let op2 = inst.getOp2();
+        let format = inst.getFormat();
 
         if (op2 instanceof LoadStoreOperand) {
             let loadStoreReg = this.getOperandValue(op2.getRegister());
@@ -328,65 +331,195 @@ class CodeExecutionEngine {
                     loadStoreOffset = -loadStoreOffset;
                 }
 
+                // preindexed
                 if (op2.getPreIndexed()) {
                     if (loadStoreOffset !== undefined) {
                         loadStoreReg += loadStoreOffset;
                         if (loadStoreReg < 0) { loadStoreReg += 0x100000000 }
                         else if (loadStoreReg >= 0xffffffff) { loadStoreReg = 0x100000000 - loadStoreReg }
                     }
-                    if (loadStoreReg % 4 !== 0) {
+                    if ((format === "" && loadStoreReg % 4 !== 0) || (["h", "sh"].includes(format) && loadStoreReg % 2 !== 0)) {
                         this.cpu.newTerminalMessage(this.cpu.toHex(loadStoreReg) + " not an aligned address!", MessageType.Error)
                         this.newRegisters[15] -= 4;
                         return false;
                     }
-                    if (inst.getInstruction() === "str") {
-                        let successful = this.newMainMemory.addData(loadStoreReg, reg)
-                        if (!successful) {
-                            this.cpu.newTerminalMessage("Storing data to an Instruction line not supported!", MessageType.Warning)
-                            this.newRegisters[15] -= 4;
-                            return false;
+
+                    let offset = loadStoreReg % 4;
+                    let content = this.newMainMemory.getMemoryLine(loadStoreReg - offset).getContent();
+
+                    if (typeof content === 'number') {
+                        if (inst.getInstruction() === "str") {
+                            switch (format) {
+                                case "b":
+                                    // move lowest byte of reg to correct position
+                                    reg &= 0xff;
+                                    reg <<= (offset * 8);
+                                    // delete content byte and replace with reg byte
+                                    content &= ~(0xff << (offset * 8));
+                                    content |= reg;
+                                    break;
+                                case "h":
+                                    // move lowest halfword of reg to correct position
+                                    reg &= 0xffff;
+                                    reg <<= (offset * 8);
+                                    // delete content halfword and replace with reg halfword
+                                    content &= ~(0xffff << (offset * 8));
+                                    content |= reg;
+                                    break;
+                            }
+
+                            let successful = this.newMainMemory.addData(loadStoreReg - offset, content)
+
+                            if (!successful) {
+                                this.cpu.newTerminalMessage("Storing data to an Instruction line not supported!", MessageType.Warning)
+                                this.newRegisters[15] -= 4;
+                                return false;
+                            }
+                        }
+                        else if (inst.getInstruction() === "ldr" || inst.getInstruction() === "swp") {
+                            let swapContent = Number(content);
+                            switch (format) {
+                                case "b":
+                                    content &= 0xff << (offset * 8);
+                                    content >>>= (offset * 8);
+                                    break;
+                                case "sb":
+                                    content &= 0xff << (offset * 8);
+                                    content <<= (3 - offset) * 8;
+                                    content >>= 24;
+                                    content >>>= 0;
+                                    break;
+                                case "h":
+                                    content &= 0xffff << (offset * 8);
+                                    content >>>= (offset * 8);
+                                    break;
+                                case "sh":
+                                    content &= 0xff << (offset * 8);
+                                    content <<= (2 - offset) * 8;
+                                    content >>= 16;
+                                    content >>>= 0;
+                                    break;
+                            }
+
+                            let index = inst.getOp1().getIndex();
+
+                            if (inst.getInstruction() === "swp") {
+                                let temp = this.newRegisters[index];
+                                if (format === "b") {
+                                    temp &= 0xff;
+                                    temp <<= (offset * 8);
+                                    // delete content byte and replace with reg byte
+                                    swapContent &= ~(0xff << (offset * 8));
+                                    swapContent |= reg;
+                                }
+                                else {
+                                    swapContent = temp;
+                                }
+
+                                this.newMainMemory.addData(loadStoreReg - offset, swapContent)
+                            }
+
+                            this.newRegisters[index] = content;
+
                         }
                     }
-                    else if (inst.getInstruction() === "ldr") {
-                        let content = this.newMainMemory.getMemoryLine(loadStoreReg).getContent();
-                        if (typeof content === 'number') {
-                            let index = inst.getOp1().getIndex();
-                            this.newRegisters[index] = content;
-                        }
-                        else {
-                            this.cpu.newTerminalMessage("Loading data from an Instruction line not supported!", MessageType.Warning)
-                            this.newRegisters[15] -= 4;
-                            return false;
-                        }
+                    else {
+                        this.cpu.newTerminalMessage("Loading/Storing data from/to an Instruction line is not supported!", MessageType.Warning)
+                        this.newRegisters[15] -= 4;
+                        return false;
                     }
                 }
+                // postindexed
                 else {
-                    if (loadStoreReg % 4 !== 0) {
+                    if ((format === "" && loadStoreReg % 4 !== 0) || (["h", "sh"].includes(format) && loadStoreReg % 2 !== 0)) {
                         this.cpu.newTerminalMessage(this.cpu.toHex(loadStoreReg) + " not an aligned address!", MessageType.Error)
                         this.newRegisters[15] -= 4;
                         return false;
                     }
-                    if (inst.getInstruction() === "str") {
-                        let successful = this.newMainMemory.addData(loadStoreReg, reg)
-                        if (!successful) {
-                            this.cpu.newTerminalMessage("Storing data to an Instruction line not supported!", MessageType.Warning)
-                            this.newRegisters[15] -= 4;
-                            return false;
+
+                    let offset = loadStoreReg % 4;
+                    let content = this.newMainMemory.getMemoryLine(loadStoreReg - offset).getContent();
+
+                    if (typeof content === 'number') {
+                        if (inst.getInstruction() === "str") {
+                            switch (format) {
+                                case "b":
+                                    // move lowest byte of reg to correct position
+                                    reg &= 0xff;
+                                    reg <<= (offset * 8);
+                                    // delete content byte and replace with reg byte
+                                    content &= ~(0xff << (offset * 8));
+                                    content |= reg;
+                                    break;
+                                case "h":
+                                    // move lowest halfword of reg to correct position
+                                    reg &= 0xffff;
+                                    reg <<= (offset * 8);
+                                    // delete content halfword and replace with reg halfword
+                                    content &= ~(0xffff << (offset * 8));
+                                    content |= reg;
+                                    break;
+                            }
+
+                            let successful = this.newMainMemory.addData(loadStoreReg - offset, content)
+                            if (!successful) {
+                                this.cpu.newTerminalMessage("Storing data to an Instruction line not supported!", MessageType.Warning)
+                                this.newRegisters[15] -= 4;
+                                return false;
+                            }
                         }
-                    }
-                    else if (inst.getInstruction() === "ldr") {
-                        let content = this.newMainMemory.getMemoryLine(loadStoreReg).getContent();
-                        if (typeof content === 'number') {
+                        else if (inst.getInstruction() === "ldr" || inst.getInstruction() === "swp") {
+                            let swapContent = Number(content);
+                            switch (format) {
+                                case "b":
+                                    content &= 0xff << (offset * 8);
+                                    content >>>= (offset * 8);
+                                    break;
+                                case "sb":
+                                    content &= 0xff << (offset * 8);
+                                    content <<= (3 - offset) * 8;
+                                    content >>= 24;
+                                    content >>>= 0;
+                                    break;
+                                case "h":
+                                    content &= 0xffff << (offset * 8);
+                                    content >>>= (offset * 8);
+                                    break;
+                                case "sh":
+                                    content &= 0xff << (offset * 8);
+                                    content <<= (2 - offset) * 8;
+                                    content >>= 16;
+                                    content >>>= 0;
+                                    break;
+                            }
+
                             let index = inst.getOp1().getIndex();
-                            if( index === 15) { content+=4 };
+
+                            if (inst.getInstruction() === "swp") {
+                                let temp = this.newRegisters[index];
+                                if (format === "b") {
+                                    temp &= 0xff;
+                                    temp <<= (offset * 8);
+                                    // delete content byte and replace with reg byte
+                                    swapContent &= ~(0xff << (offset * 8));
+                                    swapContent |= reg;
+                                }
+                                else {
+                                    swapContent = temp;
+                                }
+
+                                this.newMainMemory.addData(loadStoreReg - offset, swapContent)
+                            }
+
                             this.newRegisters[index] = content;
                         }
-                        else {
-                            this.cpu.newTerminalMessage("Loading data from an Instruction line not supported!", MessageType.Warning)
-                            this.newRegisters[15] -= 4;
-                            return false;
-                        }
                     }
+                    else {
+                        this.cpu.newTerminalMessage("Loading/Storing data from/to an Instruction line is not supported!", MessageType.Warning)
+                        this.newRegisters[15] -= 4;
+                        return false;
+                    }
+
                     if (loadStoreOffset !== undefined) {
                         loadStoreReg += loadStoreOffset;
                     }
@@ -399,7 +532,7 @@ class CodeExecutionEngine {
             }
         }
 
-        else if (op2 instanceof LoadImmediateOperand && inst.getInstruction() == "ldr" && this.newMainMemory !== undefined) {
+        else if (op2 instanceof LoadImmediateOperand && inst.getInstruction() === "ldr" && this.newMainMemory !== undefined) {
             let op2Immediate = op2.getImmediate();
             let content;
 
@@ -466,7 +599,7 @@ class CodeExecutionEngine {
             case "mul": y = (a * b); isArithmetic = false; break;
             case "mla": y = ((typeof x !== 'undefined') ? (a * b) + x : undefined); isArithmetic = false;
         }
-        
+
         if (inst.getUpdateStatusRegister() && typeof y !== 'undefined') {
             this.newStatusRegister.updateFlags(y, a, b, isSubtraction, isArithmetic);
         }
@@ -478,7 +611,6 @@ class CodeExecutionEngine {
         let y = undefined;
         let isArithmetic = false;
         let isSubtraction = false;
-        let updateStatusRegister = inst.getUpdateStatusRegister();
         let resultNeeded = true;
 
         switch (inst.getInstruction()) {
@@ -492,7 +624,7 @@ class CodeExecutionEngine {
             case "eor": y = (a ^ b); resultNeeded = false;
         }
 
-        if (updateStatusRegister && typeof y !== 'undefined') {
+        if (inst.getUpdateStatusRegister() && typeof y !== 'undefined') {
             this.newStatusRegister.updateFlags(y, a, b, isSubtraction, isArithmetic);
         }
 
@@ -508,6 +640,10 @@ class CodeExecutionEngine {
         switch (inst.getInstruction()) {
             case "mov": y = b; break;
             case "mvn": y = ~b; break;
+        }
+
+        if (inst.getUpdateStatusRegister() && typeof y !== 'undefined') {
+            this.newStatusRegister.updateFlags(y, 0, b, false, false);
         }
 
         return y;
@@ -531,7 +667,7 @@ class CodeExecutionEngine {
             for (let x = 0; x < length; x++) {
                 let memoryLine = this.newMainMemory?.getMemoryLine(address).getContent();
                 if (typeof memoryLine === 'number') {
-                    output += String.fromCharCode(memoryLine >>> nextLine * 8 & 0xff);
+                    output += String.fromCharCode((memoryLine >>> (nextLine * 8)) & 0xff);
                     nextLine++;
                     if (nextLine === 4) {
                         nextLine = 0;

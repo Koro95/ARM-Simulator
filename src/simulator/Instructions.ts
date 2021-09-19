@@ -175,24 +175,28 @@ class JumpInstruction extends Instruction {
 }
 
 class LoadStoreInstruction extends Instruction {
+    private format: string;
     private op1: RegisterOperand;
     private op2: LoadStoreOperand | LoadImmediateOperand;
 
     constructor(instruction: string,
+        format: string,
         condition: string,
         op1: RegisterOperand,
         op2: LoadStoreOperand | LoadImmediateOperand,
         updateStatusRegister: boolean) {
         super(instruction, condition, updateStatusRegister);
+        this.format = format;
         this.op1 = op1;
         this.op2 = op2;
     }
 
     getOp1() { return this.op1; }
     getOp2() { return this.op2; }
+    getFormat() { return this.format }
 
     toString() {
-        let string = super.toString();
+        let string = this.getInstruction() + this.getFormat() + this.getCondition();
         string += " " + this.op1.toString();
         string += ", " + this.op2.toString();
 

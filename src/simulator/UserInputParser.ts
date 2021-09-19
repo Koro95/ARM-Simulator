@@ -62,6 +62,7 @@ class UserInputParser {
                     case ASTKinds.instruction_6: successful = this.parseSoftwareInterruptInstruction(currentLine.instruction); break;
                     case ASTKinds.variableLine: successful = this.addVariable(currentLine.variable, currentLine.label); break;
                     case ASTKinds.directive_1: successful = this.addASCIIData(currentLine.directive.data); break;
+                    case ASTKinds.directive_2: successful = this.addData(currentLine.directive.size, "0"); break;
                 }
 
                 if (!successful) { break; }
@@ -69,9 +70,9 @@ class UserInputParser {
                 line = line.nextLine;
             }
 
-            if (successful) {             
-                let startAddress =  this.cpu.state.mainMemory.labelToAddress.get("_start");
-                if (startAddress !== undefined) {         
+            if (successful) {
+                let startAddress = this.cpu.state.mainMemory.labelToAddress.get("_start");
+                if (startAddress !== undefined) {
                     let newRegisters = [...this.cpu.state.registers];
                     newRegisters[15] = startAddress;
                     let newStackTrace = [startAddress]
@@ -148,6 +149,28 @@ class UserInputParser {
         }
         return true;
     }
+
+    addData(sizeString: string, dataString: string): boolean {
+        let size = parseInt(sizeString);
+        let data = parseInt(dataString);
+
+        if (!isNaN(size) && !isNaN(data) && data <= 255) {
+            for (let x = 0; x < size;) {
+                let memoryData = 0;
+                for (let y = 0; y < 4 && x < size; y++, x++) {
+                    memoryData += data << y * 8;
+                }
+                memoryData >>>= 0;
+                this.cpu.state.mainMemory.addData(this.cpu.state.mainMemory.memoryLines.size * 4, memoryData);
+            }
+            return true;
+        }
+        else {
+            this.cpu.newTerminalMessage(".space data too big (1 byte, <=255)!", MessageType.Error);
+        }
+        return false;
+    }
+
 
     parseArithmeticInstruction(instruction: art): boolean {
         let op1, op2, op3, op4;
@@ -229,6 +252,11 @@ class UserInputParser {
 
     parseLoadStoreInstruction(instruction: loadStore): boolean {
         let op1, op2;
+        let inst = instruction.inst;
+        let format = ""
+        if (instruction.kind === ASTKinds.loadStore_1) {
+            format = instruction.format;
+        }
         let condition = instruction.cond.condType;
 
         let successful = false;
@@ -244,7 +272,7 @@ class UserInputParser {
                         if (instruction.operands.op2.offset !== null) {
                             op2 += "," + instruction.operands.op2.offset.sign + this.opToString(instruction.operands.op2.offset.offset);
                         }
-                        successful = this.cpu.state.mainMemory.addInstruction(instruction.inst, condition, false, op1, op2, undefined, undefined);
+                        successful = this.cpu.state.mainMemory.addInstruction(inst + format, condition, false, op1, op2, undefined, undefined);
                         break;
                     case ASTKinds.addressingMode_2:
                         op2 = "[" + this.opToString(instruction.operands.op2.reg);
@@ -253,7 +281,7 @@ class UserInputParser {
                         }
                         op2 += ']';
                         if (instruction.operands.op2.increment !== null) { op2 += "!"; }
-                        successful = this.cpu.state.mainMemory.addInstruction(instruction.inst, condition, false, op1, op2, undefined, undefined);
+                        successful = this.cpu.state.mainMemory.addInstruction(inst + format, condition, false, op1, op2, undefined, undefined);
                         break;
                 }
                 break;

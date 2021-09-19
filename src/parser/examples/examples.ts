@@ -161,116 +161,7 @@ loop:
 	BNE loop
 	MOV pc, lr`
 
-const binOct = 
-`.arm	// Skelett für Aufgabe 8.2
-
-.text
-
-.global _start
-
-_start:
-
-    LDR r1,=22948	// Wert für Ausgabe
-
-  	MOV r4, r1
-
-    BL bin		// Ausgabe binär
-    BL okt  	// Ausgabe oktal
-	BL hex 		// Ausgabe hexadezimal
-
-    MOV r0, #0
-    MOV r7, #1 	// wähle Systemaufruf exit
-    SWI #0
-
-bin:
-	STMFD sp!, {r0-r12, lr} 	// alle Register sichern
-	MOV r3, #32			// 32 Binärstellen
-    MOV r0, #1
-	MOV r7, #4			// wähle Systemaufruf write
-	MOV r2, #1			// Länge der Zeichenkette
-binloop:
-	LDR r1, =lut			// Adresse der Zeichentabelle
-	ADD r1, r1, r4, LSR #31		// addiere höchstes Bit von r4
-	SWI #0
-	MOV r4, r4, LSL #1		// nächste Binär-Ziffer in höchstem Bit
-	SUBS r3, r3, #1
-	BNE binloop
-
-    LDR r1, =lb
-    MOV r0, #1
-    MOV r2, #1
-    SWI #0
-
-	LDMFD sp!, {r0-r12, lr} 	// alle Register wiederherstellen
-    MOV pc, lr              	// Rücksprung
-
-okt:
-	STMFD sp!, {r0-r12, lr} 	// alle Register sichern
-	MOV r3, #11			// 11 Oktalstellen
-    MOV r0, #1
-	MOV r7, #4			// wähle Systemaufruf write
-	MOV r2, #1			// Länge der Zeichenkett
-oktloop:
-	LDR r1, =lut			// Adresse der Zeichentabelle
-	ADD r1, r1, r4, LSR #29		// addiere Bits 29-31 von r4
-	SWI #0
-	CMP r3, #11			// compare, ob es der erste Durchlauf ist
-					// Beim ersten Durchlauf wurden nur die höchsten
-					// 2 Bits oktal ausgegeben. Danach immer 3 Bits.
-	MOVEQ r4, r4, LSL #2		// 1. Durchlauf: Ersetze höchsten 2 Bits mit nächsten 3
-	MOVNE r4, r4, LSL #3		// nächste Oktal-Ziffer in höchsten 3 Bits
-	SUBS r3, r3, #1
-	BNE oktloop
-
-    LDR r1, =lb
-    MOV r0, #1
-    MOV r2, #1
-    SWI #0
-	
-	LDMFD sp!, {r0-r12, lr} 	// alle Register wiederherstellen
-    MOV pc, lr              	// Rücksprung
-
-hex:
-	STMFD sp!, {r0-r12, lr} 	// alle Register sichern
-	MOV r3, #8
-    MOV r0, #1
-	MOV r7, #4
-	MOV r2, #1
-hexloop:
-	LDR r1, =lut
-	ADD r1, r1, r4, LSR #28
-	SWI #0
-	MOV r4, r4, LSL #4
-	SUBS r3, r3, #1
-	BNE hexloop
-
-    LDR r1, =lb
-    MOV r0, #1
-    MOV r2, #1
-    SWI #0
-	
-	LDMFD sp!, {r0-r12, lr} 	// alle Register wiederherstellen
-    MOV pc, lr              	// Rücksprung
-	
-div:    // Dividend in r1 (16 Bit, vorzeichenlos)
-        // Divisor in r2 (16 Bit, vorzeichenlos)
-
-    MOV r2, r2, LSL #16
-    MOV r3, #16           // Schleifenzähler
-divloop:
-    RSBS r1, r2, r1, LSL #1 // schiebe und subtrahiere
-    ORRPL r1, r1, #1
-    ADDMI r1, r1, r2        // Wiederherstellung des Rests
-    SUBS r3, r3, #1
-    BNE divloop
-                // Quotient in r1_15, . . . , r1_0
-                // Rest in r1_31, . . . , r1_16
-    MOV pc, lr             // Rücksprung
-
-lut:	.ascii "0123456789abcdef"
-lb:     .ascii  "\\n"               // Zeilenumbruch`
-
-const binOctFull =
+const binOct =
 `.arm	// Skelett für Aufgabe 8.2
 
 .text
@@ -299,6 +190,7 @@ _start:
 bin:
 	STMFD sp!, {r0-r12, lr} 	// alle Register sichern
 	MOV r3, #32			// 32 Binärstellen
+	MOV r0, #1
 	MOV r7, #4			// wähle Systemaufruf write
 	MOV r2, #1			// Länge der Zeichenkette
 binloop:
@@ -320,6 +212,7 @@ binloop:
 okt:
 	STMFD sp!, {r0-r12, lr} 	// alle Register sichern
 	MOV r3, #11			// 11 Oktalstellen
+	MOV r0, #1
 	MOV r7, #4			// wähle Systemaufruf write
 	MOV r2, #1			// Länge der Zeichenkett
 oktloop:
@@ -345,6 +238,7 @@ oktloop:
 hex:
 	STMFD sp!, {r0-r12, lr} 	// alle Register sichern
 	MOV r3, #8
+	MOV r0, #1
 	MOV r7, #4
 	MOV r2, #1
 hexloop:
@@ -382,7 +276,7 @@ dec:                    // Ganzzahl in r1 (32 Bit, vorzeichenlos)
         STMFD sp!, {r0-r12, lr} // alle Register sichern
         LDR r5,=bufferdec+10    // Zeiger auf Ende des Puffers +1
         MOV r6, #0x30           // ASCII-Kode für 0 als Offset
-        MOV r0, #1		// wähle stdout
+        MOV r0, #1				// wähle stdout
         MOV r7, #0              // Stellenzähler
 decloop:
         ADD r7, r7, #1          // nächste Ziffer (mind. eine)
@@ -420,7 +314,7 @@ const pascal =
 
 _start:
 
-	LDR r0, =13 	// n
+	LDR r0, =13 // n
 	LDR r1, =7	// k
 	BL pas		// Routine für Pascal-Loop
 	
@@ -435,45 +329,45 @@ _start:
 pas:
 	STMFD sp!, {r2-r12, lr} // Register sichern
 
-	CMP r1, #0	// Vergleiche k mit 0
+	CMP r1, #0		// Vergleiche k mit 0
 	MOVEQ r0, #1	// Wenn k = 0, ist der Wert... 
-	BEQ rec_end	// ...an dieser Stelle 1
+	BEQ rec_end		// ...an dieser Stelle 1
 	MOVLT r0, #0	// Wenn k < 0, wird der Wert...
-	BLT rec_end	// ...mit 0 initialisiert
+	BLT rec_end		// ...mit 0 initialisiert
 
-	CMP r1, r0	// Vergleiche k mit n
+	CMP r1, r0		// Vergleiche k mit n
 	MOVEQ r0, #1	// Wennn k = n, ist der Wert...
-	BEQ rec_end	// ...an dieser Stelle 1
+	BEQ rec_end		// ...an dieser Stelle 1
 	MOVGT r0, #0	// Wenn k > n, wird der Wert...
-	BGT rec_end	// ...mit 0 initialisert
+	BGT rec_end		// ...mit 0 initialisert
 	
-	CMP r0, #1	// Vergleiche n mit 1
+	CMP r0, #1		// Vergleiche n mit 1
 	MOVLE r0, #1	// Wenn n <= 1, ist der Wert...
-	BLE rec_end	// ...an dieser Stelle 1
+	BLE rec_end		// ...an dieser Stelle 1
 	
-	MOV r4, r0	// Werte von n und k werden...
-	MOV r5, r1	// ...nach r4 und r5 kopiert
+	MOV r4, r0		// Werte von n und k werden...
+	MOV r5, r1		// ...nach r4 und r5 kopiert
 	SUB r0, r4, #1	// n - 1
 	SUB r1, r5, #1	// k - 1
 	BL pas
 
-	MOV r2, r0	// Wert erster Summand nach r2 kopiert
-	MOV r3, r1	// Kopieren nach r3 nicht nötig, kann weggelassen werden
+	MOV r2, r0		// Wert erster Summand nach r2 kopiert
+	MOV r3, r1		// Kopieren nach r3 nicht nötig, kann weggelassen werden
 	SUB r0, r4, #1	// n - 1
-	MOV r1, r5	// k
+	MOV r1, r5		// k
 	BL pas
 	
 	ADD r0, r2	// Addition (n-1 / k-1) + (n-1 / k)...
-			// ...von rekursiver Formel wird ausgeführt
+				// ...von rekursiver Formel wird ausgeführt
 rec_end:
 	LDMFD sp!, {r2-r12, lr} // Gespeicherte Register werden wieder hergestellt
 	MOV pc, lr		// Rücksprung
 
-dec:                    // Ganzzahl in r1 (32 Bit, vorzeichenlos)
+dec:                    		// Ganzzahl in r1 (32 Bit, vorzeichenlos)
         STMFD sp!, {r0-r12, lr} // alle Register sichern
         LDR r5,=bufferdec+10    // Zeiger auf Ende des Puffers +1
         MOV r6, #0x30           // ASCII-Kode für 0 als Offset
-        MOV r0, #1		// wähle stdout
+        MOV r0, #1				// wähle stdout
         MOV r7, #0              // Stellenzähler
 	
 decloop:
@@ -593,5 +487,5 @@ hexloop:
 lut: .ascii "0123456789abcdef"  // Look-Up-Tabelle
 lb:  .ascii  "\\n"               // Zeilenumbruch`
 
-const examples = [["Hello World", hello], ["Compare", compare], ["Xmas", xmas], ["Division + Output", div32OutPut], ["Binär + Oktal", binOct],
-["Binär + Oktal Full", binOctFull], ["Pascal", pascal], ["Pascal Musterlösung", pascalSampleSolution]]
+const examples = [["Hello World", hello], ["Compare", compare], ["Xmas", xmas], ["Division + Output", div32OutPut], ["Binär + Oktal", binOct], 
+					["Pascal", pascal], ["Pascal Musterlösung", pascalSampleSolution]]

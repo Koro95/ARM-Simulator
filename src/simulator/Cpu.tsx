@@ -1,7 +1,7 @@
 import { examples } from '../parser/examples/examples'
 import React from "react";
 import InputBase from '@material-ui/core/InputBase';
-import { InputBaseComponentProps, MenuItem, Paper, Select, Table, TableBody, TableCell, TableContainer, TableHead, TableRow } from "@material-ui/core";
+import { InputBaseComponentProps, MenuItem, Paper, Select, Table, TableBody, TableCell, TableContainer, TableRow } from "@material-ui/core";
 import Box from '@material-ui/core/Box';
 import Button from '@material-ui/core/Button';
 import { Tab, Tabs, TabList, TabPanel } from 'react-tabs';
@@ -88,10 +88,12 @@ class Cpu extends React.Component<any, CpuState> {
     }
 
     newTerminalOutput(message: string) {
-        let lastMessageIndex = this.state.terminal.messages.length - 1;
-        if (this.state.terminal.messages[lastMessageIndex][0] === MessageType.Output) {
-            let newMessage = this.state.terminal.messages[lastMessageIndex][1] + message;
-            this.state.terminal.messages[lastMessageIndex][1] = newMessage;
+        let newTerminal = this.state.terminal;
+        let lastMessageIndex = newTerminal.messages.length - 1;
+        if (newTerminal.messages[lastMessageIndex][0] === MessageType.Output) {
+            let newMessage = newTerminal.messages[lastMessageIndex][1] + message;
+            newTerminal.messages[lastMessageIndex][1] = newMessage;
+            this.setState({ terminal: newTerminal })
         }
         else {
             this.state.terminal.addMessage(MessageType.Output, message);
@@ -160,7 +162,6 @@ class Cpu extends React.Component<any, CpuState> {
                         <MenuItem value={4}>{examples[4][0]}</MenuItem>
                         <MenuItem value={5}>{examples[5][0]}</MenuItem>
                         <MenuItem value={6}>{examples[6][0]}</MenuItem>
-                        <MenuItem value={7}>{examples[7][0]}</MenuItem>
                     </Select>
                 </div>
                 <div className="App-body">

@@ -1,7 +1,7 @@
 import React from "react";
 import Button from '@material-ui/core/Button';
 import InputBase from '@material-ui/core/InputBase';
-import { InputBaseComponentProps, Popover, Typography } from "@material-ui/core";
+import { InputBaseComponentProps, Popover } from "@material-ui/core";
 import BreakpointDot from '@material-ui/icons/Brightness1Rounded';
 import { positionValues, Scrollbars } from 'react-custom-scrollbars-2';
 import { Cpu, MessageType } from "./Cpu";
@@ -118,7 +118,7 @@ class MainMemory {
             let op4 = this.addRegisterOperand(op4String);
 
             if (op1 !== undefined && op2 !== undefined && op3 !== undefined) {
-                if (instruction = "mul") {
+                if (instruction === "mul") {
                     newInstruction = new MultiplicationInstruction(instruction, condition, op1, op2, op3, undefined, updateStatusRegister);
                 }
                 else if (op4 !== undefined) {
@@ -196,16 +196,26 @@ class MainMemory {
                 invalidOperands.push(op1String);
             }
         }
-        else if (["ldr", "str"].includes(instruction)) {
-            let op1 = this.addRegisterOperand(op1String);
-            let op2 = this.addLoadStoreOperand(op2String);
-            if (op1 !== undefined && op2 !== undefined) {
-                newInstruction = new LoadStoreInstruction(instruction, condition, op1, op2, updateStatusRegister);
-            }
-            // operands undefined
-            else {
-                if (op1 === undefined) { invalidOperands.push(op1String) }
-                if (op2 === undefined) { invalidOperands.push(op2String) }
+        else if (["ldr", "str", "swp"].includes(instruction.substring(0, 3))) {
+            let inst = instruction.substring(0, 3)
+            let format = instruction.substring(3);
+            if (["b", "h", "sb", "sh", ""].includes(format)) {
+                if ((inst === "str" && ["sb", "sh"].includes(format)) || (inst === "swp" && ["h", "sb", "sh"].includes(format))) {
+                    // only ldr has all formats
+                }
+                else {
+                    let op1 = this.addRegisterOperand(op1String);
+                    let op2 = this.addLoadStoreOperand(op2String);
+                    if (op1 !== undefined && op2 !== undefined) {
+                        newInstruction = new LoadStoreInstruction(inst, format, condition, op1, op2, updateStatusRegister);
+                    }
+
+                    // operands undefined
+                    else {
+                        if (op1 === undefined) { invalidOperands.push(op1String) }
+                        if (op2 === undefined) { invalidOperands.push(op2String) }
+                    }
+                }
             }
         }
         else if (["ldm", "stm"].includes(instruction.substring(0, 3))) {
@@ -356,7 +366,7 @@ class MainMemory {
 
         switch (baseString) {
             case "0x": base = 16; break;
-            case "0o": base = 2; break;
+            case "0o": base = 8; break;
             case "0b": base = 2; break;
         }
 
@@ -370,8 +380,6 @@ class MainMemory {
         if (isNaN(operandValue)) {
             return undefined;
         }
-
-        op = op.substring(1);
 
         let mask = 0xffffff00
         for (let i = 0; i < 16; i++) {
@@ -419,13 +427,41 @@ class MainMemory {
         op = op.replace(/\s+/g, '');
 
         if (op[0] === "=") {
-            let x = Number(op.substring(1));
+            let opValueString = op.substring(1);
 
-            if (!isNaN(x)) {
-                return new LoadImmediateOperand(x);
+            let isPositive = true;
+            switch (opValueString.substring(0, 1)) {
+                case "+":
+                    opValueString = opValueString.substring(1);
+                    break;
+                case "-":
+                    isPositive = false;
+                    opValueString = opValueString.substring(1);
+                    break;
+            }
+
+            let base = 10;
+            let baseString = opValueString.substring(0, 2);
+            let operandValue;
+
+            switch (baseString) {
+                case "0x": base = 16; break;
+                case "0o": base = 8; break;
+                case "0b": base = 2; break;
+            }
+
+            if (isPositive) {
+                operandValue = Number(opValueString);
             }
             else {
-                return new LoadImmediateOperand(new BranchOperand(op.substring(1)))
+                operandValue = Number(-opValueString);
+            }
+
+            if (!isNaN(operandValue)) {
+                return new LoadImmediateOperand(operandValue, base);
+            }
+            else {
+                return new LoadImmediateOperand(new BranchOperand(op.substring(1)), undefined)
             }
         }
         else {
