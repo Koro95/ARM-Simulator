@@ -199,6 +199,21 @@ class LoadStoreMultipleOperand extends Operand {
         string = string.slice(0, -2) + "}";
         return string;
     }
+
+    toEncoding() {
+        let encoding = "";
+        let indices = this.registers.map(reg => reg.getIndex());
+
+        for (let index = 15; index >= 0; index--) {
+            if (indices.includes(index)) {
+                encoding += "1";
+            }
+            else {
+                encoding += "0";
+            }
+        }
+        return encoding;
+    }
 }
 
 const ShiftTypeEncoding = new Map([

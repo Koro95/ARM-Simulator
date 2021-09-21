@@ -6,7 +6,7 @@ import BreakpointDot from '@material-ui/icons/Brightness1Rounded';
 import { positionValues, Scrollbars } from 'react-custom-scrollbars-2';
 import { Cpu, MessageType } from "./Cpu";
 import { InstructionEncoder } from "./InstructionEncoder";
-import { Instruction, ArithmeticInstruction, LogicInstruction, CopyInstruction, JumpInstruction, LoadStoreInstruction, MultiplicationInstruction, SoftwareInterrupt, LoadStoreMultipleInstruction } from "./Instructions";
+import { Instruction, ArithmeticInstruction, LogicInstruction, CopyInstruction, JumpInstruction, LoadStoreInstruction, MultiplicationInstruction, SoftwareInterrupt, LoadStoreMultipleInstruction, SwapInstruction } from "./Instructions";
 import { RegisterOperand, ImmediateOperand, ShifterOperand, BranchOperand, LoadStoreOperand, LoadImmediateOperand, LoadStoreMultipleOperand } from './Operands';
 
 export { MainMemory };
@@ -196,7 +196,7 @@ class MainMemory {
                 invalidOperands.push(op1String);
             }
         }
-        else if (["ldr", "str", "swp"].includes(instruction.substring(0, 3))) {
+        else if (["ldr", "str"].includes(instruction.substring(0, 3))) {
             let inst = instruction.substring(0, 3)
             let format = instruction.substring(3);
             if (["b", "h", "sb", "sh", ""].includes(format)) {
@@ -216,6 +216,27 @@ class MainMemory {
                         if (op2 === undefined) { invalidOperands.push(op2String) }
                     }
                 }
+            }
+        }
+        else if (instruction.substring(0, 3) === "swp") {
+            let inst = instruction.substring(0, 3)
+            let format = instruction.substring(3);
+            if (["b", ""].includes(format)) {
+                let op1 = this.addRegisterOperand(op1String);
+                let op2 = this.addRegisterOperand(op2String);
+                let op3 = this.addRegisterOperand(op3String);
+
+                if (op1 !== undefined && op2 !== undefined && op3 !== undefined) {
+                    newInstruction = new SwapInstruction(inst, format, condition, op1, op2, op3, updateStatusRegister);
+                }
+
+                // operands undefined
+                else {
+                    if (op1 === undefined) { invalidOperands.push(op1String) }
+                    if (op2 === undefined) { invalidOperands.push(op2String) }
+                    if (op3 === undefined) { invalidOperands.push(op3String) }
+                }
+
             }
         }
         else if (["ldm", "stm"].includes(instruction.substring(0, 3))) {

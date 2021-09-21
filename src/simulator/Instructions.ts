@@ -2,7 +2,7 @@ import { RegisterOperand, ImmediateOperand, ShifterOperand, BranchOperand, LoadS
 
 export {
     Instruction, ArithmeticInstruction, MultiplicationInstruction, LogicInstruction, CopyInstruction,
-    JumpInstruction, LoadStoreInstruction, LoadStoreMultipleInstruction, SoftwareInterrupt
+    JumpInstruction, LoadStoreInstruction, SwapInstruction, LoadStoreMultipleInstruction, SoftwareInterrupt
 }
 
 class Instruction {
@@ -204,6 +204,41 @@ class LoadStoreInstruction extends Instruction {
     }
 }
 
+class SwapInstruction extends Instruction {
+    private format: string;
+    private op1: RegisterOperand;
+    private op2: RegisterOperand;
+    private op3: RegisterOperand;
+
+    constructor(instruction: string,
+        format: string,
+        condition: string,
+        op1: RegisterOperand,
+        op2: RegisterOperand,
+        op3: RegisterOperand,
+        updateStatusRegister: boolean) {
+        super(instruction, condition, updateStatusRegister);
+        this.format = format;
+        this.op1 = op1;
+        this.op2 = op2;
+        this.op3 = op3;
+    }
+
+    getOp1() { return this.op1; }
+    getOp2() { return this.op2; }
+    getOp3() { return this.op3; }
+    getFormat() { return this.format }
+
+    toString() {
+        let string = this.getInstruction() + this.getFormat() + this.getCondition();
+        string += " " + this.op1.toString();
+        string += ", " + this.op2.toString();
+        string += ", [" + this.op3.toString() + "]";
+
+        return string;
+    }
+}
+
 class LoadStoreMultipleInstruction extends Instruction {
     private op1: RegisterOperand;
     private op2: LoadStoreMultipleOperand;
@@ -241,12 +276,6 @@ class LoadStoreMultipleInstruction extends Instruction {
 }
 
 class SoftwareInterrupt extends Instruction {
-    constructor(instruction: string,
-        condition: string,
-        updateStatusRegister: boolean) {
-        super(instruction, condition, updateStatusRegister);
-    }
-
     toString() {
         return super.toString() + " #0"
     }

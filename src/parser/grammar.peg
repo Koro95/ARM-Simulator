@@ -58,13 +58,16 @@ jumpOp := op1=branchOp
 
 //------------------------------------------------------------------------------------------------
 
-loadStore := inst=loadStoreInst format=format cond=condition ws operands=loadStoreOp | inst=loadStoreInst cond=condition ws operands=loadImmediateBranchOp |
-        inst=loadStoreInst cond=condition ws operands=loadImmediateOp
+loadStore := inst=loadStoreInst format=format cond=condition ws operands=loadStoreOp |
+             inst='[sS][wW][pP]' format=format cond=condition ws operands=swpOp |
+             inst=loadStoreInst cond=condition ws operands=loadImmediateBranchOp |
+             inst=loadStoreInst cond=condition ws operands=loadImmediateOp
 
-loadStoreInst := '[lL][dD][rR]' | '[sS][tT][rR]' | '[sS][wW][pP]'
+loadStoreInst := '[lL][dD][rR]' | '[sS][tT][rR]'
 format := '[bB]' | '[hH]' | '[sS][bB]' | '[sS][hH]' | ''
 
 loadStoreOp := op1=regOp wso ',' wso op2=addressingMode
+swpOp := op1=regOp wso ',' wso op2=regOp wso ',' wso '\[' wso op3=regOp wso '\]'
 loadImmediateOp := op1=regOp wso ',' wso op2=immOp
 loadImmediateBranchOp := op1=regOp wso ',' wso '=' op2=branchOp offset='[+-][0-9]+'?
 

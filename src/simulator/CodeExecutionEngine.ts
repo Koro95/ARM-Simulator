@@ -1,8 +1,9 @@
 import { Cpu, MessageType } from "./Cpu";
-import { Instruction, ArithmeticInstruction, LogicInstruction, CopyInstruction, JumpInstruction, LoadStoreInstruction, MultiplicationInstruction, SoftwareInterrupt, LoadStoreMultipleInstruction } from "./Instructions";
+import { Instruction, ArithmeticInstruction, LogicInstruction, CopyInstruction, JumpInstruction, LoadStoreInstruction, MultiplicationInstruction, SoftwareInterrupt, LoadStoreMultipleInstruction, SwapInstruction } from "./Instructions";
 import { Operand, RegisterOperand, ImmediateOperand, ShifterOperand, BranchOperand, LoadStoreOperand, LoadImmediateOperand } from './Operands';
 import { MainMemory } from "./MainMemory";
 import { StatusRegister } from "./StatusRegister";
+import { AddressingMode, AddressingModeToIncrement } from "./InstructionEncoder";
 
 export { CodeExecutionEngine };
 
@@ -173,8 +174,14 @@ class CodeExecutionEngine {
                     result = this.copy(inst, op2Value);
                 }
 
-                if (targetRegister === 15 && op2 instanceof RegisterOperand && op2.getIndex() === 14) {
-                    this.stackTrace.pop();
+                if (targetRegister === 15) {
+                    if (result !== undefined) {
+                        this.cpu.state.mainMemory.goto = result;
+                        this.cpu.state.mainMemory.gotoMemoryAddress();
+                    }
+                    if (op2 instanceof RegisterOperand && op2.getIndex() === 14) {
+                        this.stackTrace.pop();
+                    }
                 }
 
             }
@@ -200,6 +207,9 @@ class CodeExecutionEngine {
             }
             else if (inst instanceof LoadStoreInstruction) {
                 if (!this.loadStore(inst)) { return false; }
+            }
+            else if (inst instanceof SwapInstruction) {
+                if (!this.swap(inst)) { return false; }
             }
             else if (inst instanceof LoadStoreMultipleInstruction) {
                 if (!this.loadStoreMultiple(inst)) { return false; }
@@ -366,18 +376,12 @@ class CodeExecutionEngine {
                                     content &= ~(0xffff << (offset * 8));
                                     content |= reg;
                                     break;
+                                default: content = reg;
                             }
 
-                            let successful = this.newMainMemory.addData(loadStoreReg - offset, content)
-
-                            if (!successful) {
-                                this.cpu.newTerminalMessage("Storing data to an Instruction line not supported!", MessageType.Warning)
-                                this.newRegisters[15] -= 4;
-                                return false;
-                            }
+                            this.newMainMemory.addData(loadStoreReg - offset, content)
                         }
-                        else if (inst.getInstruction() === "ldr" || inst.getInstruction() === "swp") {
-                            let swapContent = Number(content);
+                        else if (inst.getInstruction() === "ldr") {
                             switch (format) {
                                 case "b":
                                     content &= 0xff << (offset * 8);
@@ -402,25 +406,7 @@ class CodeExecutionEngine {
                             }
 
                             let index = inst.getOp1().getIndex();
-
-                            if (inst.getInstruction() === "swp") {
-                                let temp = this.newRegisters[index];
-                                if (format === "b") {
-                                    temp &= 0xff;
-                                    temp <<= (offset * 8);
-                                    // delete content byte and replace with reg byte
-                                    swapContent &= ~(0xff << (offset * 8));
-                                    swapContent |= reg;
-                                }
-                                else {
-                                    swapContent = temp;
-                                }
-
-                                this.newMainMemory.addData(loadStoreReg - offset, swapContent)
-                            }
-
                             this.newRegisters[index] = content;
-
                         }
                     }
                     else {
@@ -459,17 +445,12 @@ class CodeExecutionEngine {
                                     content &= ~(0xffff << (offset * 8));
                                     content |= reg;
                                     break;
+                                default: content = reg;
                             }
 
-                            let successful = this.newMainMemory.addData(loadStoreReg - offset, content)
-                            if (!successful) {
-                                this.cpu.newTerminalMessage("Storing data to an Instruction line not supported!", MessageType.Warning)
-                                this.newRegisters[15] -= 4;
-                                return false;
-                            }
+                            this.newMainMemory.addData(loadStoreReg - offset, content)
                         }
-                        else if (inst.getInstruction() === "ldr" || inst.getInstruction() === "swp") {
-                            let swapContent = Number(content);
+                        else if (inst.getInstruction() === "ldr") {
                             switch (format) {
                                 case "b":
                                     content &= 0xff << (offset * 8);
@@ -494,22 +475,6 @@ class CodeExecutionEngine {
                             }
 
                             let index = inst.getOp1().getIndex();
-
-                            if (inst.getInstruction() === "swp") {
-                                let temp = this.newRegisters[index];
-                                if (format === "b") {
-                                    temp &= 0xff;
-                                    temp <<= (offset * 8);
-                                    // delete content byte and replace with reg byte
-                                    swapContent &= ~(0xff << (offset * 8));
-                                    swapContent |= reg;
-                                }
-                                else {
-                                    swapContent = temp;
-                                }
-
-                                this.newMainMemory.addData(loadStoreReg - offset, swapContent)
-                            }
 
                             this.newRegisters[index] = content;
                         }
@@ -576,6 +541,53 @@ class CodeExecutionEngine {
                 content = op2Immediate;
                 this.newRegisters[inst.getOp1().getIndex()] = content;
             }
+        }
+        else {
+            return false;
+        }
+
+        return true;
+    }
+
+    swap(inst: SwapInstruction): boolean {
+        let op1Content = Number(this.getOperandValue(inst.getOp1()));
+        let op2Content = Number(this.getOperandValue(inst.getOp2()));
+        let loadStoreAddress = this.getOperandValue(inst.getOp3());
+        let format = inst.getFormat();
+
+        if (!isNaN(op2Content) && loadStoreAddress !== undefined && this.newMainMemory !== undefined) {
+            if ((format === "" && loadStoreAddress % 4 !== 0)) {
+                this.cpu.newTerminalMessage(this.cpu.toHex(loadStoreAddress) + " not an aligned address!", MessageType.Error)
+                this.newRegisters[15] -= 4;
+                return false;
+            }
+
+            let offset = loadStoreAddress % 4;
+            let content = this.newMainMemory.getMemoryLine(loadStoreAddress - offset).getContent();
+
+            if (typeof content === 'number') {
+                if (format === "b") {
+                    // zero-extend it for content of op1
+                    op1Content = (content & (0xff << (offset * 8))) >>> (offset * 8);
+                    // replace lowest byte of op2 in content;
+                    op2Content &= 0xff;
+                    op2Content <<= (offset * 8);
+                    op2Content |= (content &= ~(0xff << (offset * 8)));
+                    op2Content >>>= 0;
+                }
+                else {
+                    op1Content = content;
+                }
+
+                this.newRegisters[inst.getOp1().getIndex()] = op1Content;
+                this.newMainMemory.addData(loadStoreAddress - offset, op2Content);
+            }
+            else {
+                this.cpu.newTerminalMessage("Loading/Storing data from/to an Instruction line is not supported!", MessageType.Warning)
+                this.newRegisters[15] -= 4;
+                return false;
+            }
+
         }
         else {
             return false;
@@ -751,21 +763,3 @@ class CodeExecutionEngine {
         return x >>> 0;
     }
 }
-
-const AddressingMode = new Map([
-    ["stmea", "ia"],
-    ["ldmfd", "ia"],
-    ["stmfa", "ib"],
-    ["ldmed", "ib"],
-    ["stmed", "da"],
-    ["ldmfa", "da"],
-    ["stmfd", "db"],
-    ["ldmed", "db"]
-]);
-
-const AddressingModeToIncrement = new Map([
-    ["ia", [true, false]],
-    ["ib", [true, true]],
-    ["da", [false, false]],
-    ["db", [false, true]],
-]);

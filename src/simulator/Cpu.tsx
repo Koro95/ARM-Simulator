@@ -74,11 +74,20 @@ class Cpu extends React.Component<any, CpuState> {
     }
 
     regValueChange = (index: number, e: React.ChangeEvent<HTMLTextAreaElement | HTMLInputElement>) => {
-        let newValue = e.currentTarget.value;
+        let newValue = Number('0x' + e.currentTarget.value);
         let newRegisters = [...this.state.registers];
 
-        newRegisters[index] = (parseInt('0x' + newValue));
-        this.setState({ registers: newRegisters });
+        if (!isNaN(newValue)) {
+            newRegisters[index] = newValue;
+        }
+
+        let start = e.target.selectionStart;
+
+        this.setState({ registers: newRegisters }, () => {
+            if (start !== null) {
+                e.target.selectionStart = e.target.selectionEnd = start - 1;
+            }
+        });
     }
 
     newTerminalMessage(message: string, type: MessageType = MessageType.Text) {
@@ -143,6 +152,7 @@ class Cpu extends React.Component<any, CpuState> {
 
     render() {
         const style = { style: { padding: 0, 'padding-left': 10, width: '90px', fontFamily: 'monospace' } } as InputBaseComponentProps;
+        const stackTrace = this.state.codeExecutionEngine.stackTrace;
 
         return (
             <div className="App">
@@ -170,7 +180,7 @@ class Cpu extends React.Component<any, CpuState> {
                             <Tabs>
                                 <TabList className="tab-list-reg">
                                     <Tab>Register</Tab>
-                                    <Tab>Stack</Tab>
+                                    <Tab>Stacktrace</Tab>
                                     <Tab>Breakpoints</Tab>
                                 </TabList>
 
@@ -193,11 +203,11 @@ class Cpu extends React.Component<any, CpuState> {
                                     <div className="Reg"> <div className="Reg-names">pc</div><InputBase inputProps={style} value={this.toHex(this.state.registers[15])} onChange={e => this.regValueChange(15, e)} /> </div>
                                 </TabPanel>
                                 <TabPanel>
-                                    <TableContainer component={Paper} >
+                                
                                         <Table size="small" aria-label="a dense table">
                                             <TableBody>
-                                                {this.state.codeExecutionEngine.stackTrace.map((row) => (
-                                                    <TableRow key={row} >
+                                                {stackTrace.map((row) => (
+                                                    <TableRow>
                                                         <TableCell align="center">
                                                             {this.toHex(row)}
                                                         </TableCell>
@@ -205,7 +215,7 @@ class Cpu extends React.Component<any, CpuState> {
                                                 ))}
                                             </TableBody>
                                         </Table>
-                                    </TableContainer>
+                                  
                                 </TabPanel>
                                 <TabPanel>
                                     <TableContainer component={Paper} >

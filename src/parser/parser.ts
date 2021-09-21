@@ -38,11 +38,14 @@
 * copyOp := op1=regOp wso ',' wso op2=op
 * jumpOp := op1=branchOp
 * //------------------------------------------------------------------------------------------------
-* loadStore := inst=loadStoreInst format=format cond=condition ws operands=loadStoreOp | inst=loadStoreInst cond=condition ws operands=loadImmediateBranchOp |
-*         inst=loadStoreInst cond=condition ws operands=loadImmediateOp
-* loadStoreInst := '[lL][dD][rR]' | '[sS][tT][rR]' | '[sS][wW][pP]'
+* loadStore := inst=loadStoreInst format=format cond=condition ws operands=loadStoreOp |
+*              inst='[sS][wW][pP]' format=format cond=condition ws operands=swpOp |
+*              inst=loadStoreInst cond=condition ws operands=loadImmediateBranchOp |
+*              inst=loadStoreInst cond=condition ws operands=loadImmediateOp
+* loadStoreInst := '[lL][dD][rR]' | '[sS][tT][rR]'
 * format := '[bB]' | '[hH]' | '[sS][bB]' | '[sS][hH]' | ''
 * loadStoreOp := op1=regOp wso ',' wso op2=addressingMode
+* swpOp := op1=regOp wso ',' wso op2=regOp wso ',' wso '\[' wso op3=regOp wso '\]'
 * loadImmediateOp := op1=regOp wso ',' wso op2=immOp
 * loadImmediateBranchOp := op1=regOp wso ',' wso '=' op2=branchOp offset='[+-][0-9]+'?
 * //------------------------------------------------------------------------------------------------
@@ -149,15 +152,16 @@ export enum ASTKinds {
     loadStore_1 = "loadStore_1",
     loadStore_2 = "loadStore_2",
     loadStore_3 = "loadStore_3",
+    loadStore_4 = "loadStore_4",
     loadStoreInst_1 = "loadStoreInst_1",
     loadStoreInst_2 = "loadStoreInst_2",
-    loadStoreInst_3 = "loadStoreInst_3",
     format_1 = "format_1",
     format_2 = "format_2",
     format_3 = "format_3",
     format_4 = "format_4",
     format_5 = "format_5",
     loadStoreOp = "loadStoreOp",
+    swpOp = "swpOp",
     loadImmediateOp = "loadImmediateOp",
     loadImmediateBranchOp = "loadImmediateBranchOp",
     loadStoreMultiple = "loadStoreMultiple",
@@ -475,7 +479,7 @@ export interface jumpOp {
     kind: ASTKinds.jumpOp;
     op1: branchOp;
 }
-export type loadStore = loadStore_1 | loadStore_2 | loadStore_3;
+export type loadStore = loadStore_1 | loadStore_2 | loadStore_3 | loadStore_4;
 export interface loadStore_1 {
     kind: ASTKinds.loadStore_1;
     inst: loadStoreInst;
@@ -485,20 +489,26 @@ export interface loadStore_1 {
 }
 export interface loadStore_2 {
     kind: ASTKinds.loadStore_2;
-    inst: loadStoreInst;
+    inst: string;
+    format: format;
     cond: condition;
-    operands: loadImmediateBranchOp;
+    operands: swpOp;
 }
 export interface loadStore_3 {
     kind: ASTKinds.loadStore_3;
     inst: loadStoreInst;
     cond: condition;
+    operands: loadImmediateBranchOp;
+}
+export interface loadStore_4 {
+    kind: ASTKinds.loadStore_4;
+    inst: loadStoreInst;
+    cond: condition;
     operands: loadImmediateOp;
 }
-export type loadStoreInst = loadStoreInst_1 | loadStoreInst_2 | loadStoreInst_3;
+export type loadStoreInst = loadStoreInst_1 | loadStoreInst_2;
 export type loadStoreInst_1 = string;
 export type loadStoreInst_2 = string;
-export type loadStoreInst_3 = string;
 export type format = format_1 | format_2 | format_3 | format_4 | format_5;
 export type format_1 = string;
 export type format_2 = string;
@@ -509,6 +519,12 @@ export interface loadStoreOp {
     kind: ASTKinds.loadStoreOp;
     op1: regOp;
     op2: addressingMode;
+}
+export interface swpOp {
+    kind: ASTKinds.swpOp;
+    op1: regOp;
+    op2: regOp;
+    op3: regOp;
 }
 export interface loadImmediateOp {
     kind: ASTKinds.loadImmediateOp;
@@ -1569,6 +1585,7 @@ export class Parser {
             () => this.matchloadStore_1($$dpth + 1, $$cr),
             () => this.matchloadStore_2($$dpth + 1, $$cr),
             () => this.matchloadStore_3($$dpth + 1, $$cr),
+            () => this.matchloadStore_4($$dpth + 1, $$cr),
         ]);
     }
     public matchloadStore_1($$dpth: number, $$cr?: ErrorTracker): Nullable<loadStore_1> {
@@ -1594,17 +1611,19 @@ export class Parser {
     public matchloadStore_2($$dpth: number, $$cr?: ErrorTracker): Nullable<loadStore_2> {
         return this.run<loadStore_2>($$dpth,
             () => {
-                let $scope$inst: Nullable<loadStoreInst>;
+                let $scope$inst: Nullable<string>;
+                let $scope$format: Nullable<format>;
                 let $scope$cond: Nullable<condition>;
-                let $scope$operands: Nullable<loadImmediateBranchOp>;
+                let $scope$operands: Nullable<swpOp>;
                 let $$res: Nullable<loadStore_2> = null;
                 if (true
-                    && ($scope$inst = this.matchloadStoreInst($$dpth + 1, $$cr)) !== null
+                    && ($scope$inst = this.regexAccept(String.raw`(?:[sS][wW][pP])`, $$dpth + 1, $$cr)) !== null
+                    && ($scope$format = this.matchformat($$dpth + 1, $$cr)) !== null
                     && ($scope$cond = this.matchcondition($$dpth + 1, $$cr)) !== null
                     && this.matchws($$dpth + 1, $$cr) !== null
-                    && ($scope$operands = this.matchloadImmediateBranchOp($$dpth + 1, $$cr)) !== null
+                    && ($scope$operands = this.matchswpOp($$dpth + 1, $$cr)) !== null
                 ) {
-                    $$res = {kind: ASTKinds.loadStore_2, inst: $scope$inst, cond: $scope$cond, operands: $scope$operands};
+                    $$res = {kind: ASTKinds.loadStore_2, inst: $scope$inst, format: $scope$format, cond: $scope$cond, operands: $scope$operands};
                 }
                 return $$res;
             });
@@ -1614,15 +1633,33 @@ export class Parser {
             () => {
                 let $scope$inst: Nullable<loadStoreInst>;
                 let $scope$cond: Nullable<condition>;
-                let $scope$operands: Nullable<loadImmediateOp>;
+                let $scope$operands: Nullable<loadImmediateBranchOp>;
                 let $$res: Nullable<loadStore_3> = null;
+                if (true
+                    && ($scope$inst = this.matchloadStoreInst($$dpth + 1, $$cr)) !== null
+                    && ($scope$cond = this.matchcondition($$dpth + 1, $$cr)) !== null
+                    && this.matchws($$dpth + 1, $$cr) !== null
+                    && ($scope$operands = this.matchloadImmediateBranchOp($$dpth + 1, $$cr)) !== null
+                ) {
+                    $$res = {kind: ASTKinds.loadStore_3, inst: $scope$inst, cond: $scope$cond, operands: $scope$operands};
+                }
+                return $$res;
+            });
+    }
+    public matchloadStore_4($$dpth: number, $$cr?: ErrorTracker): Nullable<loadStore_4> {
+        return this.run<loadStore_4>($$dpth,
+            () => {
+                let $scope$inst: Nullable<loadStoreInst>;
+                let $scope$cond: Nullable<condition>;
+                let $scope$operands: Nullable<loadImmediateOp>;
+                let $$res: Nullable<loadStore_4> = null;
                 if (true
                     && ($scope$inst = this.matchloadStoreInst($$dpth + 1, $$cr)) !== null
                     && ($scope$cond = this.matchcondition($$dpth + 1, $$cr)) !== null
                     && this.matchws($$dpth + 1, $$cr) !== null
                     && ($scope$operands = this.matchloadImmediateOp($$dpth + 1, $$cr)) !== null
                 ) {
-                    $$res = {kind: ASTKinds.loadStore_3, inst: $scope$inst, cond: $scope$cond, operands: $scope$operands};
+                    $$res = {kind: ASTKinds.loadStore_4, inst: $scope$inst, cond: $scope$cond, operands: $scope$operands};
                 }
                 return $$res;
             });
@@ -1631,7 +1668,6 @@ export class Parser {
         return this.choice<loadStoreInst>([
             () => this.matchloadStoreInst_1($$dpth + 1, $$cr),
             () => this.matchloadStoreInst_2($$dpth + 1, $$cr),
-            () => this.matchloadStoreInst_3($$dpth + 1, $$cr),
         ]);
     }
     public matchloadStoreInst_1($$dpth: number, $$cr?: ErrorTracker): Nullable<loadStoreInst_1> {
@@ -1639,9 +1675,6 @@ export class Parser {
     }
     public matchloadStoreInst_2($$dpth: number, $$cr?: ErrorTracker): Nullable<loadStoreInst_2> {
         return this.regexAccept(String.raw`(?:[sS][tT][rR])`, $$dpth + 1, $$cr);
-    }
-    public matchloadStoreInst_3($$dpth: number, $$cr?: ErrorTracker): Nullable<loadStoreInst_3> {
-        return this.regexAccept(String.raw`(?:[sS][wW][pP])`, $$dpth + 1, $$cr);
     }
     public matchformat($$dpth: number, $$cr?: ErrorTracker): Nullable<format> {
         return this.choice<format>([
@@ -1681,6 +1714,33 @@ export class Parser {
                     && ($scope$op2 = this.matchaddressingMode($$dpth + 1, $$cr)) !== null
                 ) {
                     $$res = {kind: ASTKinds.loadStoreOp, op1: $scope$op1, op2: $scope$op2};
+                }
+                return $$res;
+            });
+    }
+    public matchswpOp($$dpth: number, $$cr?: ErrorTracker): Nullable<swpOp> {
+        return this.run<swpOp>($$dpth,
+            () => {
+                let $scope$op1: Nullable<regOp>;
+                let $scope$op2: Nullable<regOp>;
+                let $scope$op3: Nullable<regOp>;
+                let $$res: Nullable<swpOp> = null;
+                if (true
+                    && ($scope$op1 = this.matchregOp($$dpth + 1, $$cr)) !== null
+                    && this.matchwso($$dpth + 1, $$cr) !== null
+                    && this.regexAccept(String.raw`(?:,)`, $$dpth + 1, $$cr) !== null
+                    && this.matchwso($$dpth + 1, $$cr) !== null
+                    && ($scope$op2 = this.matchregOp($$dpth + 1, $$cr)) !== null
+                    && this.matchwso($$dpth + 1, $$cr) !== null
+                    && this.regexAccept(String.raw`(?:,)`, $$dpth + 1, $$cr) !== null
+                    && this.matchwso($$dpth + 1, $$cr) !== null
+                    && this.regexAccept(String.raw`(?:\[)`, $$dpth + 1, $$cr) !== null
+                    && this.matchwso($$dpth + 1, $$cr) !== null
+                    && ($scope$op3 = this.matchregOp($$dpth + 1, $$cr)) !== null
+                    && this.matchwso($$dpth + 1, $$cr) !== null
+                    && this.regexAccept(String.raw`(?:\])`, $$dpth + 1, $$cr) !== null
+                ) {
+                    $$res = {kind: ASTKinds.swpOp, op1: $scope$op1, op2: $scope$op2, op3: $scope$op3};
                 }
                 return $$res;
             });

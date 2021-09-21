@@ -1,6 +1,6 @@
 import { MainMemory } from "./MainMemory";
-import { Instruction, ArithmeticInstruction, MultiplicationInstruction, LogicInstruction, CopyInstruction, JumpInstruction, LoadStoreInstruction, SoftwareInterrupt } from "./Instructions";
-import { RegisterOperand, ImmediateOperand, ShifterOperand, BranchOperand, LoadStoreOperand} from './Operands';
+import { Instruction, ArithmeticInstruction, MultiplicationInstruction, LogicInstruction, CopyInstruction, JumpInstruction, LoadStoreInstruction, SoftwareInterrupt, LoadStoreMultipleInstruction, SwapInstruction } from "./Instructions";
+import { RegisterOperand, ImmediateOperand, ShifterOperand, BranchOperand, LoadStoreOperand } from './Operands';
 
 export { InstructionEncoder }
 
@@ -24,6 +24,15 @@ class InstructionEncoder {
         }
         else if (inst instanceof CopyInstruction || inst instanceof JumpInstruction) {
             encoding += this.toEncodingCopyJumpInstruction(inst, currentAddress);
+        }
+        else if (inst instanceof LoadStoreInstruction) {
+            encoding += this.toEncodingLoadStoreInstruction(inst);
+        }
+        else if (inst instanceof SwapInstruction) {
+            encoding += this.toEncodingSwapInstruction(inst);
+        }
+        else if (inst instanceof LoadStoreMultipleInstruction) {
+            encoding += this.toEncodingLoadStoreMultipleInstruction(inst);
         }
         else if (inst instanceof SoftwareInterrupt) {
             encoding += "1111000000000000000000000000"
@@ -230,6 +239,167 @@ class InstructionEncoder {
 
         return encoding;
     }
+
+    toEncodingLoadStoreInstruction(inst: LoadStoreInstruction): string {
+        let encoding = "";
+        let op1 = inst.getOp1()
+        let op2 = inst.getOp2();
+        let format = inst.getFormat();
+
+        if (op2 instanceof LoadStoreOperand) {
+            switch (format) {
+                case "": case "b":
+                    encoding += "01";
+
+                    if (op2.getOffset() instanceof ImmediateOperand) {
+                        encoding += "0";
+                    }
+                    else {
+                        encoding += "1";
+                    }
+                    break;
+                case "h": case "sb": case "sh":
+                    encoding += "000";
+                    break;
+            }
+
+            op2.getPreIndexed() ? encoding += "1" : encoding += "0";
+            op2.getIncrement() ? encoding += "1" : encoding += "0";
+
+            switch (format) {
+                case "": encoding += "0"; break;
+                case "b": encoding += "1"; break;
+                case "h": case "sb": case "sh":
+                    if (op2.getOffset() instanceof ImmediateOperand) {
+                        encoding += "1";
+                    }
+                    else {
+                        encoding += "0";
+                    }
+                    break;
+            }
+
+            if (op2.getPreIndexed()) {
+                op2.getIncrement() ? encoding += "1" : encoding += "0";
+            }
+            else {
+                encoding += "0";
+            }
+
+            switch (inst.getInstruction()) {
+                case "ldr": encoding += "1"; break;
+                case "str": encoding += "0"; break;
+            }
+
+            encoding += op2.getRegister().toEncoding();
+            encoding += op1.toEncoding();
+
+            let offset = op2.getOffset();
+            switch (format) {
+                case "": case "b":
+                    if (offset !== undefined) {
+                        encoding += offset.toEncoding().padStart(12, "0")
+                    }
+                    else {
+                        encoding += "000000000000"
+                    }
+                    break;
+                case "h": case "sb": case "sh":
+                    if (offset instanceof ImmediateOperand) {
+                        let immediate = offset.getValue().toString(2).padStart(8, "0");
+
+                        encoding += immediate.substring(0,4)
+
+                        encoding += "10";
+                        if (format === "h" || format === "sh") {
+                            encoding += "1";
+                        }
+                        else {
+                            encoding += "0";
+                        }
+                        encoding += "1";
+
+                        encoding += immediate.substring(4)
+                    }
+                    else {
+                        encoding += "0000";
+                        encoding += "10";
+                        if (format === "h" || format === "sh") {
+                            encoding += "1";
+                        }
+                        else {
+                            encoding += "0";
+                        }
+                        encoding += "1";
+                        if (offset !== undefined) {
+                            encoding += offset.toEncoding();                         
+                        }
+                        else {
+                            encoding += "0000";
+                        }
+                    }
+                    break;
+            }
+
+        }
+        else {
+            // ldr r0, =label unkown encoding -> didn't find anything in ARM reference manual
+            encoding += "0000000000000000000000000000"
+        }
+
+        console.log(encoding.length)
+
+        return encoding;
+    }
+
+    toEncodingSwapInstruction(inst: SwapInstruction): string {
+        let encoding = "00010";
+
+        switch (inst.getFormat()) {
+            case "": encoding += "000"; break;
+            case "b": encoding += "100"; break;
+        }
+
+        encoding += inst.getOp3().toEncoding();
+        encoding += inst.getOp1().toEncoding();
+
+        encoding += "00001001"
+
+        encoding += inst.getOp2().toEncoding();
+
+        return encoding;
+    }
+
+    toEncodingLoadStoreMultipleInstruction(inst: LoadStoreMultipleInstruction): string {
+        let encoding = "100";
+
+        let addressingMode = inst.getAddressingMode()
+        // fd, fa, ed, ea
+        let alternateAddressingMode = AddressingMode.get(inst.getInstruction() + inst.getAddressingMode());
+        if (alternateAddressingMode !== undefined) {
+            addressingMode = alternateAddressingMode;
+        }
+        let pu = AddressingModeToIncrement.get(addressingMode);
+
+        if (pu !== undefined) {
+            pu[1] ? encoding += "1" : encoding += "0";
+            pu[0] ? encoding += "1" : encoding += "0";
+        }
+
+        encoding += "0";
+
+        inst.getIncrement() ? encoding += "1" : encoding += "0";
+
+        switch (inst.getInstruction()) {
+            case "ldm": encoding += "1"; break;
+            case "stm": encoding += "0"; break;
+        }
+
+        encoding += inst.getOp1().toEncoding();
+        encoding += inst.getOp2().toEncoding();
+
+        return encoding;
+    }
 }
 
 const ConditionEncoding = new Map([
@@ -273,4 +443,22 @@ const InstructionEncoding = new Map([
     ["tst", "1000"],
     ["mov", "1101"],
     ["mvn", "1111"]
+]);
+
+export const AddressingMode = new Map([
+    ["stmea", "ia"],
+    ["ldmfd", "ia"],
+    ["stmfa", "ib"],
+    ["ldmed", "ib"],
+    ["stmed", "da"],
+    ["ldmfa", "da"],
+    ["stmfd", "db"],
+    ["ldmed", "db"]
+]);
+
+export const AddressingModeToIncrement = new Map([
+    ["ia", [true, false]],
+    ["ib", [true, true]],
+    ["da", [false, false]],
+    ["db", [false, true]],
 ]);

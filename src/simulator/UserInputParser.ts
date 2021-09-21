@@ -75,9 +75,13 @@ class UserInputParser {
                 if (startAddress !== undefined) {
                     let newRegisters = [...this.cpu.state.registers];
                     newRegisters[15] = startAddress;
-                    let newStackTrace = [startAddress]
-                    this.cpu.state.codeExecutionEngine.stackTrace = newStackTrace;
-                    this.cpu.setState({ registers: newRegisters, codeExecutionEngine: this.cpu.state.codeExecutionEngine })
+
+                    let newCodeExecutionEngine = this.cpu.state.codeExecutionEngine;
+                    let newStackTrace = [];
+                    newStackTrace.push(startAddress);
+                    newCodeExecutionEngine.stackTrace = newStackTrace;
+
+                    this.cpu.setState({ registers: newRegisters, codeExecutionEngine: newCodeExecutionEngine });
                 }
                 else {
                     this.cpu.newTerminalMessage("No \"_start\" label found. Starting at 0x00000000", MessageType.Warning)
@@ -251,10 +255,10 @@ class UserInputParser {
     }
 
     parseLoadStoreInstruction(instruction: loadStore): boolean {
-        let op1, op2;
+        let op1, op2, op3;
         let inst = instruction.inst;
         let format = ""
-        if (instruction.kind === ASTKinds.loadStore_1) {
+        if (instruction.kind === ASTKinds.loadStore_1 || instruction.kind === ASTKinds.loadStore_2) {
             format = instruction.format;
         }
         let condition = instruction.cond.condType;
@@ -284,6 +288,11 @@ class UserInputParser {
                         successful = this.cpu.state.mainMemory.addInstruction(inst + format, condition, false, op1, op2, undefined, undefined);
                         break;
                 }
+                break;
+            case ASTKinds.swpOp:
+                op2 = this.opToString(instruction.operands.op2);
+                op3 = this.opToString(instruction.operands.op3);
+                successful = this.cpu.state.mainMemory.addInstruction(inst + format, condition, false, op1, op2, op3, undefined);
                 break;
             case ASTKinds.loadImmediateOp:
                 op2 = instruction.operands.op2
