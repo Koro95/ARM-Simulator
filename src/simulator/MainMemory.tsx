@@ -644,6 +644,9 @@ class MainMemory {
                     <Button className="Button-goto" onClick={() => { this.goto = this.cpu.state.registers[14]; this.gotoMemoryAddress() }} variant="outlined" color="primary">LR</Button>
                     <Button className="Button-goto" onClick={() => { this.goto = this.cpu.state.registers[15]; this.gotoMemoryAddress() }} variant="outlined" color="primary">PC</Button>
                     <div style={{ marginLeft: 'auto' }}>
+                    <Button variant="contained" color="primary" style={{ lineHeight: '18px' }}
+                            onClick={() => this.resetMemory()}>
+                            Clear Memory</Button>
                         <Button variant="contained" color="primary" style={{ lineHeight: '18px' }}
                             onClick={(e: React.MouseEvent<HTMLElement, MouseEvent>) => {
                                 this.cpu.setState({ anchorEl: e.currentTarget });

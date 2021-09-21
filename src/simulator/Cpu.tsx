@@ -6,7 +6,9 @@ import Box from '@material-ui/core/Box';
 import Button from '@material-ui/core/Button';
 import { Tab, Tabs, TabList, TabPanel } from 'react-tabs';
 import 'react-tabs/style/react-tabs.css';
-import CancelIcon from '@material-ui/icons/Cancel';
+import CancelIcon from '@mui/icons-material/Cancel';
+import DownloadIcon from '@mui/icons-material/Download';
+
 
 import CodeMirror from '@uiw/react-codemirror';
 
@@ -150,29 +152,45 @@ class Cpu extends React.Component<any, CpuState> {
         this.setState({ codeExecutionEngine: newEngine });
     };
 
+    // https://stackoverflow.com/questions/44656610/download-a-string-as-txt-file-in-react/44661948
+    downloadTxtFile = () => {
+        const element = document.createElement("a");
+        const file = new Blob([this.state.userInput], { type: 'text/plain' });
+        element.href = URL.createObjectURL(file);
+        element.download = "code.asm";
+        document.body.appendChild(element); // Required for this to work in FireFox
+        element.click();
+    }
+
     render() {
-        const style = { style: { padding: 0, 'padding-left': 10, width: '90px', fontFamily: 'monospace' } } as InputBaseComponentProps;
+        const style = { style: { padding: 0, 'padding-left': 10, width: '90px', fontFamily: 'monospace', height: '18px' } } as InputBaseComponentProps;
         const stackTrace = this.state.codeExecutionEngine.stackTrace;
 
         return (
             <div className="App">
                 <div className="App-header">
-                    Examples:
-                    <Select className="example-select"
-                        labelId="demo-simple-select-label"
-                        id="demo-simple-select"
-                        value={this.state.tabExample}
-                        onChange={this.selectExampleChange}
-                        onClose={this.loadExample}
-                    >
-                        <MenuItem value={0}>{examples[0][0]}</MenuItem>
-                        <MenuItem value={1}>{examples[1][0]}</MenuItem>
-                        <MenuItem value={2}>{examples[2][0]}</MenuItem>
-                        <MenuItem value={3}>{examples[3][0]}</MenuItem>
-                        <MenuItem value={4}>{examples[4][0]}</MenuItem>
-                        <MenuItem value={5}>{examples[5][0]}</MenuItem>
-                        <MenuItem value={6}>{examples[6][0]}</MenuItem>
-                    </Select>
+                    <DownloadIcon onClick={this.downloadTxtFile} style={{ paddingTop: '3px', paddingLeft: '5px', paddingRight: '5px', cursor: 'pointer' }}></DownloadIcon>
+                    Download Code
+
+                    <div style={{ paddingLeft: '10px', paddingRight: '5px' }}>
+                        <Select className="example-select"
+                            labelId="demo-simple-select-label"
+                            id="demo-simple-select"
+                            value={this.state.tabExample}
+                            onChange={this.selectExampleChange}
+                            onClose={this.loadExample}
+                        >
+                            <MenuItem value={0}>{examples[0][0]}</MenuItem>
+                            <MenuItem value={1}>{examples[1][0]}</MenuItem>
+                            <MenuItem value={2}>{examples[2][0]}</MenuItem>
+                            <MenuItem value={3}>{examples[3][0]}</MenuItem>
+                            <MenuItem value={4}>{examples[4][0]}</MenuItem>
+                            <MenuItem value={5}>{examples[5][0]}</MenuItem>
+                            <MenuItem value={6}>{examples[6][0]}</MenuItem>
+                        </Select>
+                    </div>
+                    Load Example
+
                 </div>
                 <div className="App-body">
                     <Box width="19.75%" mr="0.5%" height="100%" minWidth="150px">
@@ -201,21 +219,22 @@ class Cpu extends React.Component<any, CpuState> {
                                     <div className="Reg"> <div className="Reg-names">sp</div><InputBase inputProps={style} value={this.toHex(this.state.registers[13])} onChange={e => this.regValueChange(13, e)} /> </div>
                                     <div className="Reg"> <div className="Reg-names">lr</div><InputBase inputProps={style} value={this.toHex(this.state.registers[14])} onChange={e => this.regValueChange(14, e)} /> </div>
                                     <div className="Reg"> <div className="Reg-names">pc</div><InputBase inputProps={style} value={this.toHex(this.state.registers[15])} onChange={e => this.regValueChange(15, e)} /> </div>
+                                    <div>N: {this.state.statusRegister.getN()}, Z: {this.state.statusRegister.getZ()}, C: {this.state.statusRegister.getC()}, V: {this.state.statusRegister.getV()}</div>
                                 </TabPanel>
                                 <TabPanel>
-                                
-                                        <Table size="small" aria-label="a dense table">
-                                            <TableBody>
-                                                {stackTrace.map((row) => (
-                                                    <TableRow>
-                                                        <TableCell align="center">
-                                                            {this.toHex(row)}
-                                                        </TableCell>
-                                                    </TableRow>
-                                                ))}
-                                            </TableBody>
-                                        </Table>
-                                  
+
+                                    <Table size="small" aria-label="a dense table">
+                                        <TableBody>
+                                            {stackTrace.map((row) => (
+                                                <TableRow>
+                                                    <TableCell align="center">
+                                                        {this.toHex(row)}
+                                                    </TableCell>
+                                                </TableRow>
+                                            ))}
+                                        </TableBody>
+                                    </Table>
+
                                 </TabPanel>
                                 <TabPanel>
                                     <TableContainer component={Paper} >
@@ -239,17 +258,15 @@ class Cpu extends React.Component<any, CpuState> {
                         </Box>
                         <Box height="25.25%" mb="0.5%" className="App-debugger">
                             <div className="App-debugger-content">
-                                <div>N: {this.state.statusRegister.getN()}, Z: {this.state.statusRegister.getZ()}, C: {this.state.statusRegister.getC()}, V: {this.state.statusRegister.getV()}</div>
-
-                                <div>
+                                <div style={{ paddingTop: '5px' }}>
                                     <Button onClick={() => { this.state.userInputParser.parseUserInput() }} variant="outlined" color="primary">Compile</Button>
                                 </div>
-                                <div>
+                                <div style={{ paddingTop: '5px' }}>
                                     <Button className="button" onClick={() => { let newEngine = this.state.codeExecutionEngine; newEngine.stop = true; this.setState({ codeExecutionEngine: newEngine }, () => this.state.codeExecutionEngine.continue()) }} variant="outlined" color="primary">NextInst</Button>
                                     <Button className="button" onClick={() => { let newEngine = this.state.codeExecutionEngine; newEngine.stop = false; this.setState({ codeExecutionEngine: newEngine }, () => this.state.codeExecutionEngine.continue()) }} variant="outlined" color="primary">Continue</Button>
                                     <Button onClick={() => { let newEngine = this.state.codeExecutionEngine; newEngine.stop = true; this.setState({ codeExecutionEngine: newEngine }) }} variant="outlined" color="primary">Stop</Button>
                                 </div>
-                                <div>
+                                <div style={{ paddingTop: '5px' }}>
                                     <Button onClick={() => this.resetRegister()} variant="outlined" color="primary">Reset Registers</Button>
                                 </div>
                             </div>
