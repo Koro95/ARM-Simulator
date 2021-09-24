@@ -1,9 +1,24 @@
+/*
+    File that defines all different operands needed for instructions.
+*/
+
 export {
-    Operand, RegisterOperand, ImmediateOperand, ShifterOperand, BranchOperand, LoadStoreOperand, LoadImmediateOperand, LoadStoreMultipleOperand
+    Operand, RegisterOperand, ImmediateOperand, ShifterOperand, BranchOperand,
+    LoadStoreOperand, LoadImmediateOperand, LoadStoreMultipleOperand
 }
 
+/*
+    Common parent class for functions that take any
+    operand as input.
+*/
 class Operand { }
 
+/*
+    Class for register operands r0-r15, sp, lr or pc.
+
+    index: number
+        Index of the register
+*/
 class RegisterOperand extends Operand {
     private index: number;
 
@@ -13,6 +28,7 @@ class RegisterOperand extends Operand {
     }
 
     getIndex() { return this.index; }
+
     toString() {
         if (this.index < 13) {
             return "r" + this.index;
@@ -23,11 +39,24 @@ class RegisterOperand extends Operand {
             case 15: return "pc";
         }
     }
+
     toEncoding() {
         return this.index.toString(2).padStart(4, "0");
     }
 }
 
+/*
+    Class for immediate operands with shift.
+
+    immed8: number
+        8 bit immediate
+    rotateImmed: number
+        Shift by a factor of 2 from the
+        barrel shifter
+    base: number
+        Base for the output of the number
+        (Hex, Okt, Bin or Dez)
+*/
 class ImmediateOperand extends Operand {
     private immed8: number;
     private rotateImmed: number;
@@ -43,6 +72,7 @@ class ImmediateOperand extends Operand {
     getValue() {
         return ((this.immed8 >>> this.rotateImmed * 2) | (this.immed8 << (32 - this.rotateImmed * 2)));
     }
+
     toString() {
         let numberString = "#"
         switch (this.base) {
@@ -52,9 +82,25 @@ class ImmediateOperand extends Operand {
         }
         return numberString + this.getValue().toString(this.base);
     }
-    toEncoding() { return this.rotateImmed.toString(2).padStart(4, "0") + this.immed8.toString(2).padStart(8, "0") }
+
+    toEncoding() {
+        return this.rotateImmed.toString(2).padStart(4, "0") + this.immed8.toString(2).padStart(8, "0")
+    }
 }
 
+/*
+    Class for shifter operands that consist of the operand to
+    shift (register or immediate), the shift type (lsl, lsr, ...)
+    and the shift amount (register or immediate).
+
+    operandToShift: Operand
+        Operand that is shifter
+    shiftType: string
+        Type of shift the barrel shifter should perform
+    shiftAmountOperand: Operand
+        Operand with the amount the first operand is
+        shifted
+*/
 class ShifterOperand extends Operand {
     private operandToShift: Operand;
     private shiftType: string;
@@ -70,7 +116,11 @@ class ShifterOperand extends Operand {
     getOperandToShift() { return this.operandToShift; }
     getShiftType() { return this.shiftType; }
     getShiftAmountOperand() { return this.shiftAmountOperand; }
-    toString() { return this.operandToShift.toString() + ", " + this.shiftType + " " + this.shiftAmountOperand.toString(); }
+
+    toString() {
+        return this.operandToShift.toString() + ", " + this.shiftType + " " + this.shiftAmountOperand.toString();
+    }
+
     toEncoding() {
         let string = "";
 
@@ -92,6 +142,12 @@ class ShifterOperand extends Operand {
     }
 }
 
+/*
+    Class for the operands of branching operations.
+
+    label: string
+        Label of the address for the branch operation
+*/
 class BranchOperand extends Operand {
     private label: string;
 
@@ -101,9 +157,31 @@ class BranchOperand extends Operand {
     }
 
     getLabel() { return this.label };
+
     toString() { return this.label };
 }
 
+/*
+    Class for the operand of load and store operations (LDR, STR,
+    LDRB, STRB, LDRH, LDRSB, LDRSH).
+    
+    Consist of a register and the offset. Also has further boolean
+    values to determine the increment direction, if the basis register
+    is auto-incremented and if the operand is pre- or postindexed.
+
+    register: RegisterOperand
+        Operand with the address for the load/store operation
+    offset: RegisterOperand | ImmediateOperand | ShifterOperand | undefined;
+        Possible offset of the address
+    negativeRegOffset: boolean
+        True, if the offset is in the negative direction.
+    increment: boolean
+        True, if the basis register should be incremented
+        after loading/storing.
+    preIndexed: boolean
+        True, if the offset is preindexed. False, if the
+        offset is postindexed.
+*/
 class LoadStoreOperand extends Operand {
     private register: RegisterOperand;
     private offset: RegisterOperand | ImmediateOperand | ShifterOperand | undefined;
@@ -111,7 +189,8 @@ class LoadStoreOperand extends Operand {
     private increment: boolean;
     private preIndexed: boolean;
 
-    constructor(register: RegisterOperand, offset: RegisterOperand | ImmediateOperand | ShifterOperand | undefined, negativeRegOffset: boolean, increment: boolean, preIndexed: boolean) {
+    constructor(register: RegisterOperand, offset: RegisterOperand | ImmediateOperand | ShifterOperand | undefined,
+        negativeRegOffset: boolean, increment: boolean, preIndexed: boolean) {
         super();
         this.register = register;
         this.offset = offset;
@@ -149,6 +228,16 @@ class LoadStoreOperand extends Operand {
     }
 }
 
+/*
+    Class for the operand of load operations for any number and
+    the address of a label.
+
+    immediate: number | BranchOperand
+        Number to be loaded with a "LDR rX, =" operation
+    base: number | undefined
+        Base for the output of the number
+        (Hex, Okt, Bin or Dez)
+*/
 class LoadImmediateOperand extends Operand {
     private immediate: number | BranchOperand;
     private base: number | undefined;
@@ -180,6 +269,18 @@ class LoadImmediateOperand extends Operand {
     }
 }
 
+/*
+    Class for the operand of load and store  multiple operations (LDM,
+    STM).
+    
+    Has a list of the registers to be loaded/stored. Filters the list to
+    remove duplicates and sorts them by index.
+
+    registers: RegisterOperand[]
+        Array of registers to be saved. Should be filtered and in
+        order for the encoding, but is filtered and ordered again
+        in the construction if missed beforehand.
+*/
 class LoadStoreMultipleOperand extends Operand {
     private registers: RegisterOperand[];
 
@@ -216,6 +317,8 @@ class LoadStoreMultipleOperand extends Operand {
     }
 }
 
+// Encoding for the shift type
+// ARM Reference Manual (Issue I - 2005), Section A5.1 Addressing Mode 1 - Data-processing operands
 const ShiftTypeEncoding = new Map([
     ["lsl", "00"],
     ["asl", "00"],

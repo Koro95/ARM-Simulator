@@ -1,119 +1,215 @@
+// tsPEG doesn't allow all properties of regular expressions,
+// so cannot use the one to ignore case. Therefore changed
+// all direct word like '.text' to '.[tT][eE][xX][tT]' with
+// a python script. Before tried to convert the user input
+// to lower case, before parsing. But this messed with the
+// .ascii content with upper case letters.
+
 start := start=line
 
-line := '[\s]*' label=label? '[\s]*' currentLine=directive wso comment=comment? nend nextLine=line |
-        '[\s]*' label=label? '[\s]*' currentLine=instruction wso comment=comment? nend nextLine=line |
-        '[\s]*' label=label? '[\s]*' currentLine=variableLine nend nextLine=line |
-        '[\s]*' label=label? '[\s]*' currentLine=commentLine nend nextLine=line |
+// grammar split into individual lines with 4 different
+// contents in currentLine. '[\s]*' handles empty lines
+// between lines with content
+line := '[\s]*' label=label? '[\s]*' currentLine=directive wso
+         comment=comment? nend nextLine=line |
+        '[\s]*' label=label? '[\s]*' currentLine=instruction wso
+         comment=comment? nend nextLine=line |
+        '[\s]*' label=label? '[\s]*' currentLine=variableLine
+         nend nextLine=line |
+        '[\s]*' label=label? '[\s]*' currentLine=commentLine
+         nend nextLine=line |
         '[\s]*' $
 
-directive := directive=ascii | directive=space | directive='.[aA][rR][mM]' | directive='.[tT][eE][xX][tT]' |
-        directive='.[dD][aA][tT][aA]' | directive='.[aA][lL][iI][gG][nN]' | directive='.[gG][lL][oO][bB][aA][lL]' ws '_[sS][tT][aA][rR][tT]'
+// 1. all directives the parser knows
+directive := directive=ascii |
+             directive=space |
+             directive='.[aA][rR][mM]' |
+             directive='.[tT][eE][xX][tT]' |
+             directive='.[dD][aA][tT][aA]' |
+             directive='.[aA][lL][iI][gG][nN]' |
+             directive='.[gG][lL][oO][bB][aA][lL]' ws
+                       '_[sS][tT][aA][rR][tT]'
 
+// directives where additional information need to be stored
 ascii := '.[aA][sS][cC][iI][iI]' ws '"' data='[ -!#-~]*' '"'
 space := '.[sS][pP][aA][cC][eE]' ws size='[0-9]+'
 
-instruction := instruction=art | instruction=log | instruction=copyJump | instruction=loadStore | instruction=loadStoreMultiple | instruction=softwareInterrupt
+// 2. all instruction the parser knows further divided
+//    into instruction types
+instruction := instruction=art |
+               instruction=log |
+               instruction=copyJump |
+               instruction=loadStore |
+               instruction=loadStoreMultiple |
+               instruction=softwareInterrupt
 
-variableLine := variable='[_A-Za-z][_A-Za-z0-9]*' wso '=' wso '.' wso '-' wso label='[_A-Za-z][_A-Za-z0-9]*'
+// 3. lines with variables, like after ascii "len = . - msg
+variableLine := variable='[_A-Za-z][_A-Za-z0-9]*' wso '=' wso
+                '.' wso '-' wso label='[_A-Za-z][_A-Za-z0-9]*'
 
+// 4. line with only a comment
 commentLine := commentLine=comment
 
+// optional label and comment for each line
 label := label='[_A-Za-z][_A-Za-z0-9]*' ':'
 comment := comment='//[ \t\S]*' | comment='\/\*[\s -.0-~öäüß]*\*\/'
 
-//------------------------------------------------------------------------------------------------
+//--------------------------------------------------------------------
 
-art := inst=artInst cond=condition ws operands=artOp | inst='[mM][uU][lL]' cond=condition ws operands=artMulOp | inst='[mM][lL][aA]' cond=condition ws operands=artMlaOp
+// arithmetic or multiplication instructions
+art := inst=artInst cond=condition ws operands=artOp |
+       inst='[mM][uU][lL]' cond=condition ws operands=artMulOp |
+       inst='[mM][lL][aA]' cond=condition ws operands=artMlaOp
 
-artInst := '[aA][dD][dD]' | '[aA][dD][cC]' | '[sS][uU][bB]' | '[sS][bB][cC]' | '[rR][sS][bB]' | '[rR][sS][cC]'
+// known arithmetic instructions
+artInst := '[aA][dD][dD]' | '[aA][dD][cC]' | '[sS][uU][bB]' |
+           '[sS][bB][cC]' | '[rR][sS][bB]' | '[rR][sS][cC]'
 
+// different kinds of operands for arithmetic instructions
 artOp := artOp3 | artOp2
 artOp2 := op1=regOp wso ',' wso op2=op
 artOp3 := op1=regOp wso ',' wso op2=regOp wso ',' wso op3=op
 
+// different kinds of operands for multiplication instructions
 artMulOp := op1=regOp wso ',' wso op2=regOp wso ',' wso op3=regOp
-artMlaOp := op1=regOp wso ',' wso op2=regOp wso ',' wso op3=regOp wso ',' wso op4=regOp
+artMlaOp := op1=regOp wso ',' wso op2=regOp wso ',' wso op3=regOp
+            wso ',' wso op4=regOp
 
-//------------------------------------------------------------------------------------------------
+//--------------------------------------------------------------------
 
-log := inst=logInst cond=condition ws operands=logOp | inst=logCmpInst cond=condition ws operands=logOp2
+// logic instructions
+log := inst=logInst cond=condition ws operands=logOp |
+       inst=logCmpInst cond=condition ws operands=logOp2
 
-logInst := '[aA][nN][dD]' | '[oO][rR][rR]' | '[eE][oO][rR]' | '[bB][iI][cC]'
-logCmpInst := '[cC][mM][pP]' | '[cC][mM][nN]' | '[tT][sS][tT]' | '[tT][eE][qQ]'
+// known logic instructions
+logInst := '[aA][nN][dD]' | '[oO][rR][rR]' |
+           '[eE][oO][rR]' | '[bB][iI][cC]'
+logCmpInst := '[cC][mM][pP]' | '[cC][mM][nN]' |
+              '[tT][sS][tT]' | '[tT][eE][qQ]'
 
+// different kinds of operands for logic instructions
 logOp := logOp3 | logOp2
 logOp2 := op1=regOp wso ',' wso op2=op
 logOp3 := op1=regOp wso ',' wso op2=regOp wso ',' wso op3=op
 
-//------------------------------------------------------------------------------------------------
+//--------------------------------------------------------------------
 
-copyJump := inst=copyInst cond=condition ws operands=copyOp | inst=jumpInst1 cond=condition ws operands=jumpOp | inst=jumpInst2 cond=condition ws operands=jumpOp
+// copy or jump instructions
+copyJump := inst=copyInst cond=condition ws operands=copyOp |
+            inst=jumpInst1 cond=condition ws operands=jumpOp |
+            inst=jumpInst2 cond=condition ws operands=jumpOp
 
+// known copy or jump instructions
 copyInst := '[mM][oO][vV]' | '[mM][vV][nN]'
 jumpInst1 := '[bB]'
 jumpInst2 := '[bB][lL]'
 
+// different kinds of operands for copy or jump instructions
 copyOp := op1=regOp wso ',' wso op2=op
 jumpOp := op1=branchOp
 
-//------------------------------------------------------------------------------------------------
+//--------------------------------------------------------------------
 
-loadStore := inst=loadStoreInst format=format cond=condition ws operands=loadStoreOp |
-             inst='[sS][wW][pP]' format=format cond=condition ws operands=swpOp |
-             inst=loadStoreInst cond=condition ws operands=loadImmediateBranchOp |
-             inst=loadStoreInst cond=condition ws operands=loadImmediateOp
+// load/store/swap instructions
+loadStore := inst=loadStoreInst format=format cond=condition ws
+             operands=loadStoreOp |
+             inst='[sS][wW][pP]' format=format cond=condition ws
+             operands=swpOp |
+             inst=loadStoreInst cond=condition ws
+             operands=loadImmediateBranchOp |
+             inst=loadStoreInst cond=condition ws
+             operands=loadImmediateOp
 
+// known load/store instructions and formats
 loadStoreInst := '[lL][dD][rR]' | '[sS][tT][rR]'
 format := '[bB]' | '[hH]' | '[sS][bB]' | '[sS][hH]' | ''
 
+// different kinds of operands for load/store/swap instructions
 loadStoreOp := op1=regOp wso ',' wso op2=addressingMode
-swpOp := op1=regOp wso ',' wso op2=regOp wso ',' wso '\[' wso op3=regOp wso '\]'
+swpOp := op1=regOp wso ',' wso op2=regOp wso ',' wso
+         '\[' wso op3=regOp wso '\]'
 loadImmediateOp := op1=regOp wso ',' wso op2=immOp
-loadImmediateBranchOp := op1=regOp wso ',' wso '=' op2=branchOp offset='[+-][0-9]+'?
+loadImmediateBranchOp := op1=regOp wso ',' wso '=' op2=branchOp
+                         offset='[+-][0-9]+'?
 
-//------------------------------------------------------------------------------------------------
+//--------------------------------------------------------------------
 
-loadStoreMultiple := inst=loadStoreMultipleInst addressingMode=loadStoreMultipleAddrMode cond=condition ws operands=loadStoreMultipleOp
+// load/store multiple instructions
+loadStoreMultiple := inst=loadStoreMultipleInst
+                     addressingMode=loadStoreMultipleAddrMode
+                     cond=condition ws operands=loadStoreMultipleOp
 
+// known load/store multiple instructions and format
 loadStoreMultipleInst := '[lL][dD][mM]' | '[sS][tT][mM]'
-loadStoreMultipleAddrMode := '[fF][dD]' | '[fF][aA]' | '[eE][dD]' | '[eE][aA]' | '[iI][aA]' | '[iI][bB]' | '[dD][aA]' | '[dD][bB]' | ''
+loadStoreMultipleAddrMode := '[fF][dD]' | '[fF][aA]' | '[eE][dD]' |
+                             '[eE][aA]' | '[iI][aA]' | '[iI][bB]' |
+                             '[dD][aA]' | '[dD][bB]' | ''
 
-loadStoreMultipleOp := op1=regOp increment='!'? wso ',' wso '{' wso op2=regOpList wso '}'
+// different kinds of operands for load/store multiple instructions
+loadStoreMultipleOp := op1=regOp increment='!'? wso ',' wso
+                       '{' wso op2=regOpList wso '}'
 
+//--------------------------------------------------------------------
 
-//------------------------------------------------------------------------------------------------
+// software interrupts
+softwareInterrupt := inst='[sS][wW][iI]' cond=condition ws
+                     operands='#0'
 
-softwareInterrupt := inst='[sS][wW][iI]' cond=condition ws operands='#0'
+//--------------------------------------------------------------------
 
-//------------------------------------------------------------------------------------------------
+// all operands for the instructions
 
+// combinations of allows register, immediate and shifter operands
+// for data-processing instructions
 op := shiftOp=shiftOp | regImmOp=regImmOp
 regImmOp := regOp=regOp | immOp=immOp
-shiftOp := opToShift=regImmOp wso ',' wso shiftType=shiftType wso opShift=regImmOp
-addressingMode := '\[' wso reg=regOp wso '\]' offset=offset? | '\[' wso reg=regOp offset=offset? wso '\]' increment='!'?
+shiftOp := opToShift=regImmOp wso ',' wso shiftType=shiftType wso
+           opShift=regImmOp
 
+// addressing operands for load/store
+addressingMode := '\[' wso reg=regOp wso '\]' offset=offset? |
+                   '\[' wso reg=regOp offset=offset? wso '\]'
+                   increment='!'?
+                   
 offset := wso ',' wso sign=sign offset=op
 
+// register operand
 regOp := regOp='[rR][0-9]+' | '[pP][cC]' | '[lL][rR]' | '[sS][pP]'
-regOpRange := op1=regOp wso '-' wso op2=regOp
-regOpOrRange := op=regOpRange | op=regOp
-regOpList := op=regOpOrRange wso ',' wso nextOp=regOpList | op=regOpOrRange
 
+// immediate operand
 immOp := immType=immType sign=sign base=base number='[0-9a-fA-F]+'
 immType := '#' | '='
 base := '0[xX]' | '0[bB]' | '0[oO]' | ''
 sign := '-' | '\+' | ''
 
+// branch operand
 branchOp := '[_A-Za-z][_A-Za-z0-9]*'
 
-shiftType := '[lL][sS][lL]' | '[aA][sS][lL]' | '[lL][sS][rR]' | '[aA][sS][rR]' | '[rR][oO][rR]' | '[rR][rR][xX]'
+// list of register operands for load/store multiple
+regOpList := op=regOpOrRange wso ',' wso nextOp=regOpList |
+             op=regOpOrRange
+regOpRange := op1=regOp wso '-' wso op2=regOp
+regOpOrRange := op=regOpRange | op=regOp
 
+// known shift types
+shiftType := '[lL][sS][lL]' | '[aA][sS][lL]' | '[lL][sS][rR]' |
+             '[aA][sS][rR]' | '[rR][oO][rR]' | '[rR][rR][xX]'
+
+// conditions and S flag
 condition := condType=conditionType updateStatusReg='[sS]'?
-conditionType := '[eE][qQ]' | '[nN][eE]' | '[hH][sS]' | '[cC][sS]' | '[lL][oO]' | '[cC][cC]' | '[mM][iI]' | '[pP][lL]' | '[vV][sS]' |
-                 '[vV][cC]' | '[hH][iI]' | '[lL][sS]' | '[gG][eE]' | '[lL][tT]' | '[gG][tT]' | '[lL][eE]' | '[aA][lL]' | '[nN][vV]' | ''
 
-//------------------------------------------------------------------------------------------------
+// known condition types
+conditionType := '[eE][qQ]' | '[nN][eE]' | '[hH][sS]' | '[cC][sS]' |
+                 '[lL][oO]' | '[cC][cC]' | '[mM][iI]' | '[pP][lL]' |
+                 '[vV][sS]' | '[vV][cC]' | '[hH][iI]' | '[lL][sS]' |
+                 '[gG][eE]' | '[lL][tT]' | '[gG][tT]' | '[lL][eE]' |
+                 '[aA][lL]' | '[nN][vV]' | ''
 
+//--------------------------------------------------------------------
+
+// white space no new line 
 ws := '[ \t]+'
+// optional white space no new line 
 wso := '[ \t]*'
+// new line or end of file
 nend := '\n' | $

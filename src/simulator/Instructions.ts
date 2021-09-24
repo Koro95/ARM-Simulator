@@ -1,10 +1,32 @@
-import { RegisterOperand, ImmediateOperand, ShifterOperand, BranchOperand, LoadStoreOperand, LoadImmediateOperand, LoadStoreMultipleOperand } from './Operands'
+/*
+    File with all different instructions used in the VO/PS.
+
+    Implementation of instructions taken from:
+    ARM Reference Manual (Issue I - 2005), Section A4.1 Alphabetical list of ARM instructions
+*/
+
+import {
+    RegisterOperand, ImmediateOperand, ShifterOperand, BranchOperand,
+    LoadStoreOperand, LoadImmediateOperand, LoadStoreMultipleOperand
+} from './Operands'
 
 export {
     Instruction, ArithmeticInstruction, MultiplicationInstruction, LogicInstruction, CopyInstruction,
     JumpInstruction, LoadStoreInstruction, SwapInstruction, LoadStoreMultipleInstruction, SoftwareInterrupt
 }
 
+/*
+    Parent class with field, that all instructions have in common:
+
+    instruction: string
+        Name of the instruction
+    condition: string
+        Condition, under which the instruction should be executed.
+        ARM Reference Manual (Issue I - 2005), Section A3.2 The condition field
+    updateStatusRegister: boolean
+        True, if the statusregister should be updated. S-Bit after the instrcution
+        name or always true for compare instructions.
+*/
 class Instruction {
     private instruction: string;
     private condition: string;
@@ -29,6 +51,19 @@ class Instruction {
     }
 }
 
+/*
+    Class for all arithmetic instructions (ADD, ADC, SUB, SBC, RSB, RSC)
+
+    op1: RegisterOperand
+        Always a register.
+    op2: RegisterOperand | ImmediateOperand | ShifterOperand
+        Can be a register, immediate or shifter operand.
+    op3: RegisterOperand | ImmediateOperand | ShifterOperand | undefined
+        Can be a register, immediate or shifter operand.
+        Also can be undefined --> with 2 operands, op1
+        takes the place of op1 and op2 and op2 is used
+        as op3.
+*/
 class ArithmeticInstruction extends Instruction {
     private op1: RegisterOperand;
     private op2: RegisterOperand | ImmediateOperand | ShifterOperand;
@@ -60,6 +95,20 @@ class ArithmeticInstruction extends Instruction {
     }
 }
 
+/*
+    Class for all multiplication instructions (MUL, MLA)
+
+    op1: RegisterOperand
+        Only registers allowed for multiplication.
+    op2: RegisterOperand
+        Only registers allowed for multiplication.
+    op3: RegisterOperand
+        Only registers allowed for multiplication.
+    op4: RegisterOperand | undefined
+        Only registers allowed for multiplication.
+        Undefined for MUL.
+
+*/
 class MultiplicationInstruction extends Instruction {
     private op1: RegisterOperand;
     private op2: RegisterOperand;
@@ -96,6 +145,19 @@ class MultiplicationInstruction extends Instruction {
     }
 }
 
+/*
+    Class for all logic instructions (AND, ORR, EOR, BIC, CMP, CMN, TST, TEQ)
+
+    op1: RegisterOperand
+        Always a register.
+    op2: RegisterOperand | ImmediateOperand | ShifterOperand
+        Can be a register, immediate or shifter operand.
+    op3: RegisterOperand | ImmediateOperand | ShifterOperand | undefined
+        Can be a register, immediate or shifter operand.
+        Also can be undefined --> with 2 operands, op1
+        takes the place of op1 and op2 and op2 is used
+        as op3.
+*/
 class LogicInstruction extends Instruction {
     private op1: RegisterOperand;
     private op2: RegisterOperand | ImmediateOperand | ShifterOperand;
@@ -127,6 +189,14 @@ class LogicInstruction extends Instruction {
     }
 }
 
+/*
+    Class for the copy instructions (MOV, MVN)
+
+    op1: RegisterOperand
+        Always a register.
+    op2: RegisterOperand | ImmediateOperand | ShifterOperand
+        Can be a register, immediate or shifter operand.
+*/
 class CopyInstruction extends Instruction {
     private op1: RegisterOperand;
     private op2: RegisterOperand | ImmediateOperand | ShifterOperand;
@@ -153,6 +223,12 @@ class CopyInstruction extends Instruction {
     }
 }
 
+/*
+    Class for the jump instructions (B, BL)
+
+    op1: BranchOperand
+        Label to jump to.
+*/
 class JumpInstruction extends Instruction {
     private op1: BranchOperand;
 
@@ -174,6 +250,19 @@ class JumpInstruction extends Instruction {
     }
 }
 
+/*
+    Class for all load/store instructions (LDR, STR, LDRB, STRB,
+    LDRH, STRH, LDRSB, LDRSH)
+
+    format: string
+        Empty, "B", "H", "SB", "SH" depending on the data type
+        to be loaded.
+    op1: RegisterOperand
+        Always a register.
+    op2: LoadStoreOperand | LoadImmediateOperand
+        Can a LoadStoreOperand or a LoadImmediateOperand, if a
+        value is loaded with "LDR rX, =".
+*/
 class LoadStoreInstruction extends Instruction {
     private format: string;
     private op1: RegisterOperand;
@@ -204,6 +293,19 @@ class LoadStoreInstruction extends Instruction {
     }
 }
 
+/*
+    Class for all swap instructions (SWP, SWPB)
+
+    format: string
+        Empty or "B", depending on the data type
+        to be swapped.
+    op1: RegisterOperand
+        Always a register.
+    op2: RegisterOperand 
+        Always a register.
+    op3: RegisterOperand
+        Always a register.
+*/
 class SwapInstruction extends Instruction {
     private format: string;
     private op1: RegisterOperand;
@@ -239,6 +341,22 @@ class SwapInstruction extends Instruction {
     }
 }
 
+/*
+    Class for all load/store multiple instructions (LDM, STM)
+
+    op1: RegisterOperand
+        Always a register.
+    op2: LoadStoreMultipleOperand
+        Always a LoadStoreMultipleOperand.
+    addressingMode: string
+        String with the addressing mode:
+            ARM Reference Manual (Issue I - 2005), Section A5.4 Addressing Mode 4 - Load and Store Multiple
+        or alternative addressing mode:
+            ARM Reference Manual (Issue I - 2005), Section A5.4.6 Load and Store Multiple addressing modes (alternative names)
+    increment: boolean
+        True, if the basis register should be incremented
+        after loading/storing.
+*/
 class LoadStoreMultipleInstruction extends Instruction {
     private op1: RegisterOperand;
     private op2: LoadStoreMultipleOperand;
@@ -270,11 +388,18 @@ class LoadStoreMultipleInstruction extends Instruction {
         string += " " + this.op1.toString();
         if (this.increment) { string += "!"; }
         string += ", " + this.op2.toString();
-        
+
         return string;
     }
 }
 
+
+/*
+    Class for Software Interrupts (SWI #0)
+
+    Only has toString() method, handling of different
+    interrupts in CodeExectionEngine.ts
+*/
 class SoftwareInterrupt extends Instruction {
     toString() {
         return super.toString() + " #0"

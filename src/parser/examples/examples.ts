@@ -1,3 +1,7 @@
+/*
+	All Examples from the VO and PS exercises from WS 18/19
+*/
+
 export { examples }
 
 const hello =
