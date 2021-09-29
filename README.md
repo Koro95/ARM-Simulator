@@ -2,7 +2,8 @@
 
 My bachelor project at the University of Innsbruck.
 
-I created and ARM simulator written in TypeScript with React as the Frontend. Documentation in German can be found in the Latex folder
+ARM simulator written in TypeScript with React as the Frontend.
+Documentation in German can be found in the Latex folder
 
 ## Quickstart Guide
 
