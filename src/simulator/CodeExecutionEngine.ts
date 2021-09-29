@@ -66,8 +66,7 @@ class CodeExecutionEngine {
         this.breakpoints = new Set();
         this.stackTrace = [0];
 
-        // max from sample solution pascal
-        this.maxContinueInstructions = 2000000;
+        this.maxContinueInstructions = 5000000;
     }
 
     /*
@@ -101,10 +100,10 @@ class CodeExecutionEngine {
         do {
             // automatic breakpoint
             if (currentNumInstruction++ > this.maxContinueInstructions) {
-                this.cpu.newTerminalMessage("Automatic breakpoint after " + this.maxContinueInstructions + " reached!", MessageType.Error)
+                this.cpu.newTerminalMessage("Automatic breakpoint after " + this.maxContinueInstructions + " Instructions reached!", MessageType.Error)
                 break;
             }
-            // wait if speed nod Instant
+            // wait if speed not Instant
             if (this.debuggerSpeed !== DebuggerSpeed.Instant) {
                 await this.delay(this.debuggerSpeed.valueOf())
                 this.cpu.setState({ registers: this.newRegisters, statusRegister: this.newStatusRegister, mainMemory: this.newMainMemory });
@@ -128,31 +127,31 @@ class CodeExecutionEngine {
         return: boolean
             True, if function executed successfully
     */
-    executeNextInstruction(): boolean {
-        // get PC
-        let memoryAddress = this.newRegisters[15];
+executeNextInstruction(): boolean {
+    // get PC
+    let memoryAddress = this.newRegisters[15];
 
-        // check for aligned memory address
-        if (memoryAddress % 4 === 0 && typeof this.newMainMemory !== 'undefined') {
-            // execute instruction
-            this.currentLine = this.newMainMemory.getMemoryLine(memoryAddress).getContent();
-            let successful = this.executeInstruction();
-            // stop after, if there is a breakpoint
-            if (this.breakpoints.has(this.newRegisters[15])) {
-                this.stop = true;
-            }
-
-            // update last element of current stack trace
-            this.stackTrace[this.stackTrace.length - 1] = this.newRegisters[15]
-
-            return successful;
+    // check for aligned memory address
+    if (memoryAddress % 4 === 0 && typeof this.newMainMemory !== 'undefined') {
+        // execute instruction
+        this.currentLine = this.newMainMemory.getMemoryLine(memoryAddress).getContent();
+        let successful = this.executeInstruction();
+        // stop after, if there is a breakpoint
+        if (this.breakpoints.has(this.newRegisters[15])) {
+            this.stop = true;
         }
-        // unaligned address
-        else {
-            this.cpu.newTerminalMessage("Invalid Memory Address!", MessageType.Error);
-            return false;
-        }
+
+        // update last element of current stack trace
+        this.stackTrace[this.stackTrace.length - 1] = this.newRegisters[15]
+
+        return successful;
     }
+    // unaligned address
+    else {
+        this.cpu.newTerminalMessage("Invalid Memory Address!", MessageType.Error);
+        return false;
+    }
+}
 
     /*
         Function that executes an instruction or calls the correct function to execute more

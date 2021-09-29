@@ -149,7 +149,7 @@ class MainMemory {
            to the next free memory line.
            
         return: boolean
-            True, if adding the instrcution was successful
+            True, if adding the instruction was successful
     */  
     addInstruction(instruction: string, condition: string, updateStatusRegister: boolean,
         op1String: string | undefined, op2String: string | undefined, op3String: string | undefined,
@@ -938,7 +938,7 @@ class MainMemory {
     }
 
     /*
-        Function to update value in goto field after used changes it
+        Function to update value in goto field after user changes it
 
         e: React.ChangeEvent<HTMLTextAreaElement | HTMLInputElement>
             ChangeEvent when user updates text field.
