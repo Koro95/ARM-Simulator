@@ -15,7 +15,7 @@ Documentation in German can be found in the Latex folder
 
 ![UI](Latex/data/ui.png)
 
-![UI](Latex/data/uimemory.png)
+![UIMemory](Latex/data/uimemory.PNG)
 
 ## Dependencies
 
