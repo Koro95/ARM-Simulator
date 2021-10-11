@@ -11,6 +11,11 @@ Documentation in German can be found in the Latex folder
 - ``` npm install ``` to download all dependencies
 - ``` npm start ``` to run it locally on port 3000
 
+## Screenshots
+
+![UI](Latex/data/ui.png)
+
+![UI](Latex/data/uimemory.png)
 
 ## Dependencies
 
